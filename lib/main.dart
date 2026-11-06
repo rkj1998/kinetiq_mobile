@@ -255,6 +255,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
       context,
       theme: _theme,
       agentName: _displayName,
+      character: _currentCharacter,
       onOpenCustomization: _openCustomizationStudio,
     );
   }

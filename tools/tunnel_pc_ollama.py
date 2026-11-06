@@ -1,30 +1,99 @@
 #!/usr/bin/env python3
 """
-Kinetiq Mobile - Local PC Ollama Internet Tunnel
+Kinetiq Mobile - Local PC Ollama Internet Tunnel with Built-in Proxy
 Exposes your local PC Ollama models (Qwen, Llama, DeepSeek) to your phone
 ANYWHERE in the world without port forwarding or complex network configuration.
 
-Uses Cloudflare Tunnel (cloudflared) or ngrok to create a secure, HTTPS public
-endpoint with optional authentication.
-
-Requirements:
-    pip install requests
-    (Cloudflared or ngrok binary in PATH, or runs python built-in reverse proxy)
+Includes an internal Host-scrubbing reverse proxy so Ollama never throws 403 Forbidden
+regardless of how the external tunnel sends Host headers.
 
 Usage:
-    python tunnel_pc_ollama.py [--port 11434] [--tunnel cloudflare|ngrok|lan]
+    python tools/tunnel_pc_ollama.py
 """
 
 import argparse
+import http.server
 import os
+import re
 import shutil
+import socketserver
 import subprocess
 import sys
+import threading
 import time
+import urllib.request
+import urllib.error
+
+class OllamaProxyHandler(http.server.BaseHTTPRequestHandler):
+    ollama_port = 11434
+
+    def log_message(self, format, *args):
+        # Quiet proxy logging
+        pass
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', '*')
+        self.send_header('Content-Length', '0')
+        self.end_headers()
+
+    def do_GET(self):
+        self._proxy_request('GET')
+
+    def do_POST(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length) if content_length > 0 else None
+        self._proxy_request('POST', body)
+
+    def _proxy_request(self, method, body=None):
+        target_url = f"http://127.0.0.1:{self.ollama_port}{self.path}"
+        req = urllib.request.Request(target_url, data=body, method=method)
+        # Always present as local request to bypass Ollama Host/Origin protection
+        req.add_header('Host', f"127.0.0.1:{self.ollama_port}")
+        req.add_header('User-Agent', 'Kinetiq-Mobile-Tunnel/1.0')
+        req.add_header('Content-Type', self.headers.get('Content-Type', 'application/json'))
+
+        auth = self.headers.get('Authorization')
+        if auth:
+            req.add_header('Authorization', auth)
+
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                self.send_response(resp.status)
+                for k, v in resp.getheaders():
+                    if k.lower() not in ['content-length', 'connection', 'transfer-encoding']:
+                        self.send_header(k, v)
+                data = resp.read()
+                self.send_header('Content-Length', str(len(data)))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(data)
+        except urllib.error.HTTPError as e:
+            self.send_response(e.code)
+            data = e.read()
+            self.send_header('Content-Length', str(len(data)))
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(data)
+        except Exception as e:
+            self.send_response(502)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(f'{{"error": "{str(e)}"}}'.encode())
+
+def start_local_proxy(ollama_port=11434, proxy_port=11435):
+    OllamaProxyHandler.ollama_port = ollama_port
+    server = socketserver.ThreadingTCPServer(('127.0.0.1', proxy_port), OllamaProxyHandler)
+    server.allow_reuse_address = True
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    return server
 
 def check_local_ollama(port=11434):
     try:
-        import urllib.request
         import json
         req = urllib.request.Request(f"http://127.0.0.1:{port}/api/tags")
         with urllib.request.urlopen(req, timeout=3) as response:
@@ -32,17 +101,15 @@ def check_local_ollama(port=11434):
                 data = json.loads(response.read().decode('utf-8'))
                 models = [m.get('name', '') for m in data.get('models', [])]
                 return True, models
-    except Exception as e:
+    except Exception:
         return False, []
     return False, []
 
 def find_cloudflared_binary():
-    # 1. Standard PATH
     found = shutil.which("cloudflared")
     if found:
         return found
 
-    # 2. Known common Windows installation paths
     candidate_paths = [
         r"C:\Program Files (x86)\cloudflared\cloudflared.exe",
         r"C:\Program Files\cloudflared\cloudflared.exe",
@@ -56,32 +123,32 @@ def find_cloudflared_binary():
 
     return None
 
-def run_cloudflare_tunnel(port=11434):
+def run_cloudflare_tunnel(ollama_port=11434):
     cloudflared = find_cloudflared_binary()
     if not cloudflared:
         print("❌ 'cloudflared' binary not found.")
-        print("   Download it free from: https://github.com/cloudflare/cloudflared/releases")
-        print("   Or run: winget install --id Cloudflare.cloudflared (on Windows)")
+        print("   Run: winget install --id Cloudflare.cloudflared")
         sys.exit(1)
 
-    print(f"\n🚀 Found cloudflared at: {cloudflared}")
-    print(f"🚀 Launching secure Cloudflare Tunnel to local Ollama (port {port})...")
-    # CRITICAL: Ollama strictly checks Host header and returns 403 Forbidden
-    # unless --http-host-header localhost is passed!
+    # 1. Start host-scrubbing proxy on 11435
+    proxy_port = 11435
+    print(f"🛡️  Starting local host-scrubbing reverse proxy on port {proxy_port}...")
+    proxy_server = start_local_proxy(ollama_port=ollama_port, proxy_port=proxy_port)
+
+    # 2. Point cloudflared at proxy_port
+    print(f"🚀 Found cloudflared at: {cloudflared}")
+    print(f"🚀 Launching secure Cloudflare Tunnel to port {proxy_port}...")
     cmd = [
         cloudflared,
         "tunnel",
-        "--url", f"http://127.0.0.1:{port}",
-        "--http-host-header", "localhost",
+        "--url", f"http://127.0.0.1:{proxy_port}",
     ]
     proc = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 
     tunnel_url = None
-    # Cloudflared outputs tunnel URL to stderr
     for line in proc.stderr:
         print(line, end="")
         if "trycloudflare.com" in line:
-            import re
             match = re.search(r"https://[a-zA-Z0-9\-]+\.trycloudflare\.com", line)
             if match:
                 tunnel_url = match.group(0)
@@ -96,34 +163,17 @@ def run_cloudflare_tunnel(port=11434):
         print(f"   API Key:  ollama")
         print(f"\n👉 Tap 'Fetch Models' in Kinetiq to automatically load your Qwen models!")
         print("="*65 + "\n")
-        print(f"   API Key:  ollama")
-        print(f"\n👉 Tap 'Fetch Models' in Kinetiq to automatically load your Qwen models!")
-        print("="*65 + "\n")
 
     try:
         proc.wait()
     except KeyboardInterrupt:
         print("\nStopping tunnel...")
         proc.terminate()
-
-def run_ngrok_tunnel(port=11434):
-    ngrok = shutil.which("ngrok")
-    if not ngrok:
-        print("❌ 'ngrok' binary not found.")
-        print("   Download from: https://ngrok.com/download")
-        sys.exit(1)
-
-    print(f"\n🚀 Launching ngrok tunnel to local Ollama (port {port})...")
-    cmd = [ngrok, "http", str(port)]
-    proc = subprocess.Popen(cmd)
-    print("\nCheck the ngrok web UI at http://127.0.0.1:4040 for your public HTTPS URL.")
-    print("In Kinetiq Mobile, set Base URL to: https://<your-ngrok-id>.ngrok-free.app/v1")
-    proc.wait()
+        proxy_server.shutdown()
 
 def main():
     parser = argparse.ArgumentParser(description="Expose PC Ollama to Kinetiq Mobile anywhere in the world.")
     parser.add_argument("--port", type=int, default=11434, help="Local Ollama port (default: 11434)")
-    parser.add_argument("--tunnel", choices=["cloudflare", "ngrok"], default="cloudflare", help="Tunnel provider")
     args = parser.parse_args()
 
     print("="*65)
@@ -138,10 +188,7 @@ def main():
         print(f"⚠️  Warning: Ollama is not currently detected on 127.0.0.1:{args.port}.")
         print("   Make sure 'ollama serve' or the Ollama app is running on your PC.")
 
-    if args.tunnel == "cloudflare":
-        run_cloudflare_tunnel(args.port)
-    elif args.tunnel == "ngrok":
-        run_ngrok_tunnel(args.port)
+    run_cloudflare_tunnel(args.port)
 
 if __name__ == "__main__":
     main()
