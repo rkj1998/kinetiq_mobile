@@ -19,6 +19,7 @@ class SecureKeyStore {
   static const String _customSoulPromptKey = 'kinetiq_custom_soul_prompt';
   static const String _agentMemoryKey = 'kinetiq_agent_memory';
   static const String _autonomousTasksKey = 'kinetiq_autonomous_tasks';
+  static const String _pcVirtualFilesKey = 'kinetiq_pc_virtual_files';
   static const String _themeStyleKey = 'kinetiq_theme_style';
   static const String _themeAccentKey = 'kinetiq_theme_accent';
   static const String _kineticAnimKey = 'kinetiq_kinetic_animations';
@@ -95,6 +96,15 @@ class SecureKeyStore {
 
   static Future<String?> getAutonomousTasks() async {
     return await _storage.read(key: _autonomousTasksKey);
+  }
+
+  // --- Virtual PC Files & Script Outputs ---
+  static Future<void> savePcVirtualFiles(String serializedFiles) async {
+    await _storage.write(key: _pcVirtualFilesKey, value: serializedFiles);
+  }
+
+  static Future<String?> getPcVirtualFiles() async {
+    return await _storage.read(key: _pcVirtualFilesKey);
   }
 
   // --- Themes & Visual Appearance ---

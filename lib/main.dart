@@ -6,11 +6,13 @@ import 'models/agent_memory.dart';
 import 'models/app_theme_config.dart';
 import 'models/endpoint_config.dart';
 import 'models/autonomous_task.dart';
+import 'models/pc_virtual_file.dart';
 import 'services/llm/openai_adapter.dart';
 import 'services/tools/tool_registry.dart';
 import 'services/tools/mock_time_tool.dart';
 import 'services/tools/web_tools.dart';
 import 'services/tools/autonomous_cloud_vm_tool.dart';
+import 'services/tools/python_computer_tool.dart';
 import 'services/agent/react_loop.dart';
 import 'services/storage/secure_key_store.dart';
 import 'widgets/agent_avatar.dart';
@@ -19,6 +21,7 @@ import 'widgets/antigravity_startup_modal.dart';
 import 'widgets/customization_studio_sheet.dart';
 import 'widgets/agent_browser_sheet.dart';
 import 'widgets/teammate_workspace_sheet.dart';
+import 'widgets/agent_pc_terminal_sheet.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -108,6 +111,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
   String _customAgentName = '';
   AgentMemory _memory = const AgentMemory();
   List<AutonomousTask> _autonomousTasks = AutonomousTask.defaultDemoTasks;
+  List<PcVirtualFile> _pcFiles = PcVirtualFile.defaultDemoFiles;
   EndpointConfig _currentEndpoint = EndpointConfig.defaultPresets.first; // Groq Cloud default
   late final ToolRegistry _registry;
 
@@ -130,7 +134,8 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
       ..registerTool(GetSystemTimeTool())
       ..registerTool(WebSearchTool())
       ..registerTool(FetchPageTextTool())
-      ..registerTool(AutonomousCloudVMTool());
+      ..registerTool(AutonomousCloudVMTool())
+      ..registerTool(PythonComputerTool());
     _loadSavedPreferences();
   }
 
@@ -178,6 +183,10 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     final rawTasks = await SecureKeyStore.getAutonomousTasks();
     final loadedTasks = AutonomousTask.deserializeList(rawTasks);
 
+    // 3.2 PC Virtual Files
+    final rawFiles = await SecureKeyStore.getPcVirtualFiles();
+    final loadedFiles = PcVirtualFile.deserializeList(rawFiles);
+
     // 4. Endpoint
     final savedEndpointId = await SecureKeyStore.getActiveEndpointId();
     if (savedEndpointId != null) {
@@ -195,6 +204,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
       _theme = loadedTheme;
       _memory = loadedMemory;
       _autonomousTasks = loadedTasks;
+      _pcFiles = loadedFiles;
     });
   }
 
@@ -265,6 +275,18 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
           _autonomousTasks.insert(0, newTask);
         });
         await SecureKeyStore.saveAutonomousTasks(AutonomousTask.serializeList(_autonomousTasks));
+      },
+    );
+  }
+
+  void _openPcTerminal() {
+    AgentPcTerminalSheet.show(
+      context,
+      theme: _theme,
+      initialFiles: _pcFiles,
+      onFilesUpdated: (files) async {
+        setState(() => _pcFiles = files);
+        await SecureKeyStore.savePcVirtualFiles(PcVirtualFile.serializeList(_pcFiles));
       },
     );
   }
@@ -458,6 +480,13 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
         ],
       ),
       actions: [
+        // Agent PC & Python Terminal Action
+        IconButton(
+          tooltip: 'Agent PC & Python Terminal',
+          icon: Icon(Icons.terminal_rounded, size: 21, color: _theme.primaryAccent),
+          onPressed: _openPcTerminal,
+        ),
+
         // AI Teammates & Hand-off Workspace Action (Grok Bot & Muse style)
         IconButton(
           tooltip: 'Teammates & Cloud VM Jobs',
@@ -465,7 +494,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
             isLabelVisible: _autonomousTasks.any((t) => t.pendingApproval != null),
             backgroundColor: const Color(0xFFD97706),
             label: const Text('!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-            child: Icon(Icons.hub_outlined, size: 22, color: _theme.primaryAccent),
+            child: Icon(Icons.hub_outlined, size: 21, color: _theme.textSecondary),
           ),
           onPressed: _openTeammateWorkspace,
         ),
@@ -517,6 +546,13 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
+            _buildRailChip(
+              icon: Icons.terminal_rounded,
+              label: 'PC: ${_pcFiles.length} files',
+              color: const Color(0xFF38BDF8),
+              onTap: _openPcTerminal,
+            ),
+            const SizedBox(width: 8),
             _buildRailChip(
               icon: Icons.hub_outlined,
               label: 'Jobs: ${_autonomousTasks.where((t) => t.status == TaskStatus.running).length} active',
@@ -639,9 +675,9 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
               runSpacing: 8,
               alignment: WrapAlignment.center,
               children: [
-                _buildPromptSuggestion('What is the current system time?', Icons.access_time),
+                _buildPromptSuggestion('Run Python script to generate tailored PolicyMe PDF resume', Icons.code),
                 _buildPromptSuggestion('Search web for latest open-source AI models', Icons.travel_explore),
-                _buildPromptSuggestion('Hand off sales outreach or calendar follow-up to team', Icons.hub_outlined),
+                _buildPromptSuggestion('Hand off job application & calendar follow-up to team', Icons.hub_outlined),
                 _buildPromptSuggestion('Recall my remembered profile and preferences', Icons.psychology),
               ],
             ),
@@ -658,6 +694,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
         _dispatchPrompt();
       },
       child: Container(
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.88),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: _theme.cardColor,
@@ -670,12 +707,16 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
           children: [
             Icon(icon, size: 15, color: _theme.primaryAccent),
             const SizedBox(width: 8),
-            Text(
-              prompt,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w500,
-                color: _theme.textPrimary,
+            Flexible(
+              child: Text(
+                prompt,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w500,
+                  color: _theme.textPrimary,
+                ),
               ),
             ),
           ],
