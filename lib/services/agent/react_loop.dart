@@ -17,19 +17,25 @@ class ReActAgent {
   final ToolRegistry registry;
   final String model;
   final int maxTurns;
+  final String? systemPrompt;
 
   ReActAgent({
     required this.client,
     required this.registry,
     this.model = 'llama-3.3-70b-versatile',
     this.maxTurns = 5,
+    this.systemPrompt,
   });
 
   Stream<AgentStep> run({
     required String userPrompt,
-    List> history = const [],
+    List<Map<String, dynamic>> history = const [],
   }) async* {
-    final messages = List>.from(history);
+    final messages = <Map<String, dynamic>>[];
+    if (systemPrompt != null && systemPrompt!.trim().isNotEmpty) {
+      messages.add({'role': 'system', 'content': systemPrompt!});
+    }
+    messages.addAll(history);
     messages.add({'role': 'user', 'content': userPrompt});
 
     final tools = registry.getAllToolSchemas();
@@ -65,12 +71,13 @@ class ReActAgent {
 
         final toolCalls = responseMessage['tool_calls'] as List;
         for (var call in toolCalls) {
-          final functionName = call['function']['name'];
+          final functionName = call['function']['name'] as String;
           final rawArgs = call['function']['arguments'];
           final callId = call['id'];
 
-          final Map<String, dynamic> arguments =
-              rawArgs is String ? jsonDecode(rawArgs) : (rawArgs ?? {});
+          final Map<String, dynamic> arguments = rawArgs is String
+              ? (jsonDecode(rawArgs) as Map<String, dynamic>)
+              : (rawArgs is Map<String, dynamic> ? rawArgs : <String, dynamic>{});
 
           yield AgentStep(
             type: StepType.toolCall,

@@ -10,10 +10,10 @@ class OpenAIAdapter {
     this.baseUrl = 'https://api.groq.com/openai/v1',
   });
 
-  Future> sendChatCompletion({
+  Future<Map<String, dynamic>> sendChatCompletion({
     required String model,
-    required List> messages,
-    List>? tools,
+    required List<Map<String, dynamic>> messages,
+    List<Map<String, dynamic>>? tools,
   }) async {
     final payload = {
       'model': model,

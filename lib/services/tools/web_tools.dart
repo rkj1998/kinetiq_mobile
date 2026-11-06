@@ -8,7 +8,7 @@ class WebSearchTool extends BaseTool {
   String get name => 'web_search';
 
   @override
-  String get description => 'Searches the web for information, news, or articles.';
+  String get description => 'Searches the web for information and news.';
 
   @override
   Map<String, dynamic> get parametersSchema => {
@@ -16,7 +16,7 @@ class WebSearchTool extends BaseTool {
     'properties': {
       'query': {
         'type': 'string',
-        'description': 'The search query or terms to look up.'
+        'description': 'The search query to look up.'
       }
     },
     'required': ['query'],
@@ -102,7 +102,7 @@ class FetchPageTextTool extends BaseTool {
       content = content.replaceAll(RegExp(r'\s+'), ' ').trim();
 
       if (content.length > 3500) {
-        return content.substring(0, 3500) + '... [Content truncated for brevity]';
+        return '${content.substring(0, 3500)}... [Content truncated for brevity]';
       }
       return content.isNotEmpty ? content : 'No readable content could be extracted.';
     } catch (e) {

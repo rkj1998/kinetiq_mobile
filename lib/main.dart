@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'models/agent_character.dart';
+import 'models/endpoint_config.dart';
 import 'services/llm/openai_adapter.dart';
 import 'services/tools/tool_registry.dart';
 import 'services/tools/mock_time_tool.dart';
 import 'services/tools/web_tools.dart';
 import 'services/agent/react_loop.dart';
+import 'services/storage/secure_key_store.dart';
+import 'widgets/agent_avatar.dart';
+import 'widgets/character_selector_sheet.dart';
+import 'widgets/network_endpoint_sheet.dart';
+import 'widgets/agent_browser_sheet.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,11 +34,11 @@ class KinetiqApp extends StatelessWidget {
       themeMode: ThemeMode.dark,
       darkTheme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF090A0F),
+        scaffoldBackgroundColor: const Color(0xFF07080D),
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF6366F1),
           secondary: Color(0xFF10B981),
-          surface: Color(0xFF13151F),
+          surface: Color(0xFF0F111A),
         ),
       ),
       home: const KinetiqChatScreen(),
@@ -43,7 +50,16 @@ class ChatEntry {
   final String role;
   final String text;
   final List<AgentStep> steps;
-  ChatEntry({required this.role, required this.text, this.steps = const []});
+  final AgentCharacter character;
+  final String? browserUrl;
+
+  ChatEntry({
+    required this.role,
+    required this.text,
+    this.steps = const [],
+    required this.character,
+    this.browserUrl,
+  });
 }
 
 class KinetiqChatScreen extends StatefulWidget {
@@ -55,15 +71,23 @@ class KinetiqChatScreen extends StatefulWidget {
 
 class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
   final TextEditingController _promptController = TextEditingController();
-  final TextEditingController _apiKeyController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
   final List<ChatEntry> _history = [];
   List<AgentStep> _currentTurnSteps = [];
   bool _isProcessing = false;
-  String _selectedModel = 'llama-3.3-70b-versatile';
 
+  AgentCharacter _currentCharacter = AgentCharacter.presets.first; // Muse by default
+  EndpointConfig _currentEndpoint = EndpointConfig.defaultPresets.first; // Groq Cloud by default
   late final ToolRegistry _registry;
+
+  AgentMood get _currentMood {
+    if (!_isProcessing) return AgentMood.idle;
+    if (_currentTurnSteps.any((s) => s.type == StepType.toolCall)) {
+      return AgentMood.executing;
+    }
+    return AgentMood.thinking;
+  }
 
   @override
   void initState() {
@@ -72,6 +96,32 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
       ..registerTool(GetSystemTimeTool())
       ..registerTool(WebSearchTool())
       ..registerTool(FetchPageTextTool());
+    _loadSavedPreferences();
+  }
+
+  Future<void> _loadSavedPreferences() async {
+    final savedPersonaId = await SecureKeyStore.getActivePersona();
+    if (savedPersonaId != null) {
+      final found = AgentCharacter.presets.where((p) => p.id == savedPersonaId);
+      if (found.isNotEmpty) {
+        setState(() => _currentCharacter = found.first);
+      }
+    }
+
+    final savedEndpointId = await SecureKeyStore.getActiveEndpointId();
+    if (savedEndpointId != null) {
+      final found = EndpointConfig.defaultPresets.where((e) => e.id == savedEndpointId);
+      if (found.isNotEmpty) {
+        _currentEndpoint = found.first;
+      }
+    }
+
+    final savedKey = await SecureKeyStore.getApiKey(_currentEndpoint.id);
+    if (savedKey != null && savedKey.isNotEmpty) {
+      setState(() {
+        _currentEndpoint = _currentEndpoint.copyWith(apiKey: savedKey);
+      });
+    }
   }
 
   void _scrollToBottom() {
@@ -86,83 +136,24 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     });
   }
 
-  void _showSettingsModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF12141D),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 20, right: 20, top: 20,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.tune, color: Color(0xFF6366F1), size: 22),
-                const SizedBox(width: 10),
-                const Text('BYOK & Engine Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const Spacer(),
-                IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => Navigator.pop(ctx)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Text('Groq / OpenAI API Key', style: TextStyle(color: Colors.grey, fontSize: 13)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _apiKeyController,
-              obscureText: true,
-              style: const TextStyle(fontSize: 14),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: const Color(0xFF1B1D2A),
-                hintText: 'gsk_... or sk-...',
-                hintStyle: TextStyle(color: Colors.grey.shade600),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text('Model Architecture', style: TextStyle(color: Colors.grey, fontSize: 13)),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              value: _selectedModel,
-              dropdownColor: const Color(0xFF1B1D2A),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: const Color(0xFF1B1D2A),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-              items: const [
-                DropdownMenuItem(value: 'llama-3.3-70b-versatile', child: Text('Llama 3.3 70B (Groq - Ultra Fast)')),
-                DropdownMenuItem(value: 'qwen-2.5-coder-32b', child: Text('Qwen 2.5 Coder 32B (Groq)')),
-                DropdownMenuItem(value: 'llama-3.1-8b-instant', child: Text('Llama 3.1 8B Instant (Groq)')),
-              ],
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedModel = val);
-              },
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Save & Close', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-              ),
-            ),
-          ],
-        ),
-      ),
+  void _showCharacterPicker() {
+    CharacterSelectorSheet.show(
+      context,
+      currentCharacter: _currentCharacter,
+      onCharacterSelected: (char) async {
+        await SecureKeyStore.saveActivePersona(char.id);
+        setState(() => _currentCharacter = char);
+      },
+    );
+  }
+
+  void _showEndpointSettings() {
+    NetworkEndpointSheet.show(
+      context,
+      currentConfig: _currentEndpoint,
+      onConfigSaved: (config) {
+        setState(() => _currentEndpoint = config);
+      },
     );
   }
 
@@ -170,32 +161,38 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     final query = _promptController.text.trim();
     if (query.isEmpty) return;
 
-    if (_apiKeyController.text.trim().isEmpty) {
-      _showSettingsModal();
+    if (_currentEndpoint.apiKey.trim().isEmpty && !_currentEndpoint.isLocal) {
+      _showEndpointSettings();
       return;
     }
 
     _promptController.clear();
     setState(() {
-      _history.add(ChatEntry(role: 'user', text: query));
+      _history.add(ChatEntry(
+        role: 'user',
+        text: query,
+        character: _currentCharacter,
+      ));
       _currentTurnSteps = [];
       _isProcessing = true;
     });
     _scrollToBottom();
 
     final adapter = OpenAIAdapter(
-      apiKey: _apiKeyController.text.trim(),
-      baseUrl: 'https://api.groq.com/openai/v1',
+      apiKey: _currentEndpoint.apiKey.trim(),
+      baseUrl: _currentEndpoint.baseUrl.trim(),
     );
 
     final agent = ReActAgent(
       client: adapter,
       registry: _registry,
-      model: _selectedModel,
+      model: _currentEndpoint.selectedModel,
+      systemPrompt: _currentCharacter.defaultSystemPrompt,
       maxTurns: 6,
     );
 
     String finalAnswer = '';
+    String? detectedUrl;
 
     try {
       await for (final step in agent.run(
@@ -208,9 +205,19 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
             finalAnswer = step.content;
           }
         });
+
+        // Detect if any URL was parsed or visited by web tools
+        if (step.type == StepType.toolResult && step.content.contains('http')) {
+          final match = RegExp(r'https?:\/\/[^\s\)\"\\]+').firstMatch(step.content);
+          if (match != null) {
+            detectedUrl = match.group(0);
+          }
+        }
+
         _scrollToBottom();
       }
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('Agent execution error: $e\n$stack');
       finalAnswer = 'Execution halted: $e';
     }
 
@@ -219,6 +226,8 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
         role: 'agent',
         text: finalAnswer.isNotEmpty ? finalAnswer : 'Task completed without text output.',
         steps: List.from(_currentTurnSteps),
+        character: _currentCharacter,
+        browserUrl: detectedUrl,
       ));
       _currentTurnSteps = [];
       _isProcessing = false;
@@ -229,58 +238,264 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0C0E14),
-        elevation: 0,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.auto_awesome, size: 18, color: Colors.white),
+      backgroundColor: const Color(0xFF07080D),
+      appBar: _buildTopNav(),
+      body: Column(
+        children: [
+          _buildQuickActionRail(),
+          Expanded(
+            child: _history.isEmpty && !_isProcessing
+                ? _buildHeroEmptyState()
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    itemCount: _history.length + (_isProcessing ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index < _history.length) {
+                        final item = _history[index];
+                        return item.role == 'user'
+                            ? _buildUserMessage(item.text)
+                            : _buildAgentMessage(item);
+                      } else {
+                        return _buildLiveExecutionStatus();
+                      }
+                    },
+                  ),
+          ),
+          _buildInputBar(),
+        ],
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildTopNav() {
+    return AppBar(
+      backgroundColor: const Color(0xFF0C0E17),
+      elevation: 0,
+      title: Row(
+        children: [
+          GestureDetector(
+            onTap: _showCharacterPicker,
+            child: AgentAvatar(
+              character: _currentCharacter,
+              mood: _currentMood,
+              size: 38,
+              showBadge: true,
             ),
-            const SizedBox(width: 12),
-            Column(
+          ),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: _showCharacterPicker,
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Kinetiq', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                Text(_selectedModel.split('-').take(2).join(' '), style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                Row(
+                  children: [
+                    Text(
+                      _currentCharacter.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _currentCharacter.primaryColor.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        _currentCharacter.tag,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: _currentCharacter.glowColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  _currentEndpoint.isLocal
+                      ? 'Local: ${_currentEndpoint.selectedModel}'
+                      : '${_currentEndpoint.name.split('(').first.trim()} • ${_currentEndpoint.selectedModel}',
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        // Autonomous Browser Action Button
+        IconButton(
+          tooltip: 'Open Autonomous Browser',
+          icon: const Icon(Icons.public_rounded, size: 21, color: Color(0xFF38BDF8)),
+          onPressed: () {
+            AgentBrowserSheet.show(
+              context,
+              initialUrl: 'https://duckduckgo.com',
+              title: 'Kinetiq Web Inspector',
+            );
+          },
+        ),
+
+        // Endpoint & BYOK Button
+        IconButton(
+          tooltip: 'Neural Endpoint Settings',
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF181C2E),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF262D4A)),
+            ),
+            child: Icon(
+              _currentEndpoint.isLocal ? Icons.lan_rounded : Icons.tune_rounded,
+              size: 16,
+              color: _currentEndpoint.isLocal ? const Color(0xFF10B981) : const Color(0xFF818CF8),
+            ),
+          ),
+          onPressed: _showEndpointSettings,
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
+  Widget _buildQuickActionRail() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Color(0xFF0C0E17),
+        border: Border(bottom: BorderSide(color: Color(0xFF161926))),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildRailChip(
+              icon: Icons.face_retouching_natural,
+              label: 'Persona: ${_currentCharacter.name}',
+              color: _currentCharacter.glowColor,
+              onTap: _showCharacterPicker,
+            ),
+            const SizedBox(width: 8),
+            _buildRailChip(
+              icon: _currentEndpoint.isLocal ? Icons.lan : Icons.bolt,
+              label: _currentEndpoint.selectedModel.split('/').last,
+              color: const Color(0xFFF59E0B),
+              onTap: _showEndpointSettings,
+            ),
+            const SizedBox(width: 8),
+            _buildRailChip(
+              icon: Icons.language,
+              label: 'In-App Webview',
+              color: const Color(0xFF06B6D4),
+              onTap: () => AgentBrowserSheet.show(context, initialUrl: 'https://duckduckgo.com'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRailChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFF141724),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF23283B)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: Color(0xFFCBD5E1), fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroEmptyState() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AgentAvatar(
+              character: _currentCharacter,
+              mood: AgentMood.thinking,
+              size: 88,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Meet ${_currentCharacter.name}',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _currentCharacter.description,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8), height: 1.4),
+            ),
+            const SizedBox(height: 24),
+
+            // Suggested prompt cards
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                _buildPromptSuggestion('What is the current time?'),
+                _buildPromptSuggestion('Search web for latest AI news'),
+                _buildPromptSuggestion('Inspect Wikipedia homepage'),
               ],
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.tune, size: 20),
-            onPressed: _showSettingsModal,
-          ),
-          const SizedBox(width: 6),
-        ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: _history.length + (_isProcessing ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index < _history.length) {
-                  final item = _history[index];
-                  return item.role == 'user'
-                      ? _buildUserMessage(item.text)
-                      : _buildAgentMessage(item);
-                } else {
-                  return _buildLiveExecutionStatus();
-                }
-              },
-            ),
-          ),
-          _buildInputBar(),
-        ],
+    );
+  }
+
+  Widget _buildPromptSuggestion(String prompt) {
+    return GestureDetector(
+      onTap: () {
+        _promptController.text = prompt;
+        _dispatchPrompt();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: const Color(0xFF131622),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF22273D)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.auto_awesome, size: 14, color: _currentCharacter.primaryColor),
+            const SizedBox(width: 8),
+            Text(prompt, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+          ],
+        ),
       ),
     );
   }
@@ -291,17 +506,28 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
         decoration: const BoxDecoration(
-          color: Color(0xFF282C3F),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(18),
-            topRight: Radius.circular(4),
-            bottomLeft: Radius.circular(18),
-            bottomRight: Radius.circular(18),
+          gradient: LinearGradient(
+            colors: [Color(0xFF2D3249), Color(0xFF1F2333)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(6),
+            bottomLeft: Radius.circular(20),
+            bottomRight: Radius.circular(20),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
         ),
-        child: Text(text, style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.3)),
+        child: Text(text, style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.35)),
       ),
     );
   }
@@ -309,48 +535,95 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
   Widget _buildAgentMessage(ChatEntry entry) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.all(16),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.9),
-        decoration: BoxDecoration(
-          color: const Color(0xFF13151F),
-          border: Border.all(color: const Color(0xFF1E2235)),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (entry.steps.isNotEmpty) ...[
-              Theme(
-                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                child: ExpansionTile(
-                  tilePadding: EdgeInsets.zero,
-                  collapsedIconColor: Colors.grey,
-                  iconColor: const Color(0xFF6366F1),
-                  title: Row(
-                    children: [
-                      const Icon(Icons.commit, size: 16, color: Color(0xFF6366F1)),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Executed ${entry.steps.where((s) => s.type == StepType.toolCall).length} actions',
-                        style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w600),
-                      ),
-                    ],
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.all(16),
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.92),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10121C),
+            border: Border.all(color: entry.character.primaryColor.withValues(alpha: 0.2)),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black45,
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Agent identity banner
+              Row(
+                children: [
+                  AgentAvatar(character: entry.character, size: 24),
+                  const SizedBox(width: 8),
+                  Text(
+                    entry.character.name,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: entry.character.glowColor,
+                    ),
                   ),
-                  children: entry.steps.map((s) => _buildStepTile(s)).toList(),
+                  const Spacer(),
+                  if (entry.browserUrl != null)
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: const Color(0xFF06B6D4).withValues(alpha: 0.15),
+                      ),
+                      icon: const Icon(Icons.open_in_browser, size: 14, color: Color(0xFF38BDF8)),
+                      label: const Text('Open Page', style: TextStyle(fontSize: 11, color: Color(0xFF38BDF8))),
+                      onPressed: () {
+                        AgentBrowserSheet.show(context, initialUrl: entry.browserUrl!);
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // Execution Action Drawer
+              if (entry.steps.isNotEmpty) ...[
+                Theme(
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      collapsedIconColor: Colors.grey,
+                      iconColor: entry.character.primaryColor,
+                      title: Row(
+                        children: [
+                          Icon(Icons.commit, size: 16, color: entry.character.primaryColor),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Executed ${entry.steps.where((s) => s.type == StepType.toolCall).length} actions',
+                            style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      children: entry.steps.map((s) => _buildStepTile(s)).toList(),
+                    ),
+                  ),
+                ),
+                const Divider(color: Color(0xFF1B1E2D), height: 16),
+              ],
+
+              // Markdown content
+              MarkdownBody(
+                data: entry.text,
+                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                  p: const TextStyle(fontSize: 15, height: 1.45, color: Color(0xFFE2E8F0)),
+                  code: const TextStyle(backgroundColor: Color(0xFF1B1D2A), color: Color(0xFF93C5FD)),
                 ),
               ),
-              const Divider(color: Color(0xFF1E2235), height: 16),
             ],
-            MarkdownBody(
-              data: entry.text,
-              styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                p: const TextStyle(fontSize: 15, height: 1.45, color: Color(0xFFE2E8F0)),
-                code: const TextStyle(backgroundColor: Color(0xFF1E2235), color: Color(0xFF93C5FD)),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -361,24 +634,28 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF13151F),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.3)),
+        color: const Color(0xFF10121C),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _currentCharacter.primaryColor.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
-              SizedBox(
-                width: 14, height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6366F1)),
+            children: [
+              AgentAvatar(character: _currentCharacter, mood: AgentMood.thinking, size: 22),
+              const SizedBox(width: 10),
+              Text(
+                '${_currentCharacter.name} is evaluating...',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _currentCharacter.glowColor,
+                ),
               ),
-              SizedBox(width: 10),
-              Text('Kinetiq is executing...', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF6366F1))),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           ..._currentTurnSteps.map((s) => _buildStepTile(s)),
         ],
       ),
@@ -399,7 +676,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
         break;
       case StepType.thought:
         icon = Icons.psychology_outlined;
-        color = const Color(0xFF8B5CF6);
+        color = _currentCharacter.primaryColor;
         break;
       case StepType.error:
         icon = Icons.error_outline;
@@ -434,8 +711,8 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       decoration: const BoxDecoration(
-        color: Color(0xFF0C0E14),
-        border: Border(top: BorderSide(color: Color(0xFF171923))),
+        color: Color(0xFF0C0E17),
+        border: Border(top: BorderSide(color: Color(0xFF171A26))),
       ),
       child: Row(
         children: [
@@ -443,16 +720,16 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: const Color(0xFF141724),
+                color: const Color(0xFF131624),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFF222638)),
+                border: Border.all(color: const Color(0xFF22273D)),
               ),
               child: TextField(
                 controller: _promptController,
-                style: const TextStyle(fontSize: 15),
-                decoration: const InputDecoration(
-                  hintText: 'Ask Kinetiq to search, browse, or execute...',
-                  hintStyle: TextStyle(color: Color(0xFF64748B), fontSize: 14),
+                style: const TextStyle(fontSize: 15, color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Ask ${_currentCharacter.name} to browse, code, or execute...',
+                  hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 13.5),
                   border: InputBorder.none,
                 ),
                 onSubmitted: (_) => _dispatchPrompt(),
@@ -463,15 +740,28 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
           GestureDetector(
             onTap: _isProcessing ? null : _dispatchPrompt,
             child: Container(
-              width: 46, height: 46,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    _currentCharacter.primaryColor,
+                    _currentCharacter.secondaryColor,
+                  ],
+                ),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: _currentCharacter.glowColor.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Icon(
-                _isProcessing ? Icons.hourglass_top : Icons.arrow_upward,
+                _isProcessing ? Icons.hourglass_top_rounded : Icons.arrow_upward_rounded,
                 color: Colors.white,
-                size: 20,
+                size: 21,
               ),
             ),
           ),

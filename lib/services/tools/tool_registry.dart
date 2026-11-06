@@ -7,7 +7,7 @@ class ToolRegistry {
     _registeredTools[tool.name] = tool;
   }
 
-  List> getAllToolSchemas() {
+  List<Map<String, dynamic>> getAllToolSchemas() {
     return _registeredTools.values.map((t) => t.toOpenAISchema()).toList();
   }
 
