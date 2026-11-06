@@ -13,8 +13,22 @@ Commercial mobile AI clients are typically locked into proprietary backend silos
 1. **Google Antigravity Simplicity & Apple UX Polish:** Clean, airy, zero-friction default aesthetic (`ThemeStyle.antigravityLight`) with soft elevated cards, modern typography, floating dock pills, and interactive kinetic graphics.
 2. **Infinite Customization & Agent Soul:** Customize your agent's name (e.g. *Antigravity, Nova, Jarvis*), temperament, and custom backstory directives.
 3. **Local Private Memory Bank:** Store encrypted user profile facts, preferences, and standing directives on-device. Memory context is injected directly into every ReAct execution loop.
-4. **Zero-Central-Server BYOK & LAN Edge Inference:** Connect directly to cloud LPUs (Groq, OpenRouter, OpenAI) or local LAN host machines running Ollama / vLLM (`http://10.0.2.2:11434/v1` for Android Emulator or `http://192.168.x.x:11434/v1` over Wi-Fi).
-5. **Local ReAct Autonomous Runtime & Embedded Browser:** In-app Reason-Act agent loop using OpenAI function calling to autonomously browse websites, search DuckDuckGo, extract web pages, and inspect pages live in `flutter_inappwebview`.
+4. **Grok Bot & Muse Teammate Model (A Computer of Its Own):** Bots operate as autonomous teammates that don't stall when you step away. They run multi-step workflows end-to-end on their own cloud VM browser runtime and pause for user approval on high-consequence operations (sending emails, making purchases).
+5. **Zero-Central-Server BYOK & LAN Edge Inference:** Connect directly to cloud LPUs (Groq, OpenRouter, OpenAI) or local LAN host machines running Ollama / vLLM (`http://10.0.2.2:11434/v1` for Android Emulator or `http://192.168.x.x:11434/v1` over Wi-Fi).
+6. **Local ReAct Autonomous Runtime & Embedded Browser:** In-app Reason-Act agent loop using OpenAI function calling to autonomously browse websites, search DuckDuckGo, extract web pages, and inspect pages live in `flutter_inappwebview`.
+
+---
+
+## 👥 Grok Bot & Muse Autonomous Teammate Capabilities
+
+Kinetiq incorporates the operational paradigms introduced by **Grok Bot** and **Muse**:
+
+* **A Computer of Its Own (Isolated Runtime):** Bots run jobs on an isolated runtime environment (`AutonomousCloudVMTool`), so jobs do not stall when you switch apps or step away.
+* **Message Like a Teammate:** Hand off complex tasks (e.g., *"Scrape competitor pricing, summarize key shifts, draft follow-up email"*) directly in chat or via the **Teammate Workspace**.
+* **Safety Vault & User Approvals:** High-risk actions (purchases, outbound emails, account modifications) automatically pause for explicit human sign-off via interactive action cards before executing.
+* **Multi-Bot Parallelism:** Assign specialized lanes to different teammates (e.g. Antigravity as Chief of Staff, Cipher for Cyber Recon, Titan for Code Fixes).
+* **Workflows Saved as Routines:** Bots learn your preferences and edge cases, saving workflows as reusable routines that run faster next time without re-explaining.
+* **Friendly Bitmoji Companion Aesthetics:** Lively animated Bitmoji companion graphics with expressive blinking eyes, blush cheeks, and floating antigravity halos replacing rigid geometric glyphs.
 
 ---
 

@@ -258,25 +258,41 @@ class _BotFacePainter extends CustomPainter {
     // Character-specific custom facial cyber aesthetics
     switch (characterId) {
       case 'antigravity':
-        // Antigravity has Google Quantum floating oval lenses with soft horizontal pupils
-        final blink = (progress > 0.48 && progress < 0.52);
+        // Antigravity has friendly Bitmoji-style expressive eyes with sweet curved blinks
+        final blink = (progress > 0.46 && progress < 0.54);
         final eyeW = size.width * 0.14;
-        final eyeH = blink ? 2.0 : size.height * 0.11;
-        final lensRRect = RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(cx - eyeSpacing, eyeY), width: eyeW, height: eyeH),
-          Radius.circular(size.width * 0.06),
-        );
-        final lensRRectRight = RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(cx + eyeSpacing, eyeY), width: eyeW, height: eyeH),
-          Radius.circular(size.width * 0.06),
-        );
-        canvas.drawRRect(lensRRect, eyePaint);
-        canvas.drawRRect(lensRRectRight, eyePaint);
+        final eyeH = blink ? 2.5 : size.height * 0.14;
 
-        if (!blink) {
+        if (blink) {
+          final smilePaint = Paint()
+            ..color = Colors.white
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = math.max(2.0, size.width * 0.05)
+            ..strokeCap = StrokeCap.round;
+          final leftSmile = Path()
+            ..moveTo(cx - eyeSpacing - eyeW * 0.5, eyeY)
+            ..quadraticBezierTo(cx - eyeSpacing, eyeY + 3, cx - eyeSpacing + eyeW * 0.5, eyeY);
+          canvas.drawPath(leftSmile, smilePaint);
+          final rightSmile = Path()
+            ..moveTo(cx + eyeSpacing - eyeW * 0.5, eyeY)
+            ..quadraticBezierTo(cx + eyeSpacing, eyeY + 3, cx + eyeSpacing + eyeW * 0.5, eyeY);
+          canvas.drawPath(rightSmile, smilePaint);
+        } else {
+          final lensRRect = RRect.fromRectAndRadius(
+            Rect.fromCenter(center: Offset(cx - eyeSpacing, eyeY), width: eyeW, height: eyeH),
+            Radius.circular(size.width * 0.07),
+          );
+          final lensRRectRight = RRect.fromRectAndRadius(
+            Rect.fromCenter(center: Offset(cx + eyeSpacing, eyeY), width: eyeW, height: eyeH),
+            Radius.circular(size.width * 0.07),
+          );
+          canvas.drawRRect(lensRRect, eyePaint);
+          canvas.drawRRect(lensRRectRight, eyePaint);
+
+          // Sparkle catchlights
           final coreDotPaint = Paint()..color = Colors.white;
-          canvas.drawCircle(Offset(cx - eyeSpacing, eyeY), 2.2, coreDotPaint);
-          canvas.drawCircle(Offset(cx + eyeSpacing, eyeY), 2.2, coreDotPaint);
+          canvas.drawCircle(Offset(cx - eyeSpacing - 2, eyeY - 2), 2.8, coreDotPaint);
+          canvas.drawCircle(Offset(cx + eyeSpacing - 2, eyeY - 2), 2.8, coreDotPaint);
         }
         break;
 

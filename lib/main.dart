@@ -5,10 +5,12 @@ import 'models/agent_character.dart';
 import 'models/agent_memory.dart';
 import 'models/app_theme_config.dart';
 import 'models/endpoint_config.dart';
+import 'models/autonomous_task.dart';
 import 'services/llm/openai_adapter.dart';
 import 'services/tools/tool_registry.dart';
 import 'services/tools/mock_time_tool.dart';
 import 'services/tools/web_tools.dart';
+import 'services/tools/autonomous_cloud_vm_tool.dart';
 import 'services/agent/react_loop.dart';
 import 'services/storage/secure_key_store.dart';
 import 'widgets/agent_avatar.dart';
@@ -16,6 +18,7 @@ import 'widgets/antigravity_logo.dart';
 import 'widgets/antigravity_startup_modal.dart';
 import 'widgets/customization_studio_sheet.dart';
 import 'widgets/agent_browser_sheet.dart';
+import 'widgets/teammate_workspace_sheet.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -104,6 +107,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
   AgentCharacter _currentCharacter = AgentCharacter.presets.first; // Antigravity default
   String _customAgentName = '';
   AgentMemory _memory = const AgentMemory();
+  List<AutonomousTask> _autonomousTasks = AutonomousTask.defaultDemoTasks;
   EndpointConfig _currentEndpoint = EndpointConfig.defaultPresets.first; // Groq Cloud default
   late final ToolRegistry _registry;
 
@@ -125,7 +129,8 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     _registry = ToolRegistry()
       ..registerTool(GetSystemTimeTool())
       ..registerTool(WebSearchTool())
-      ..registerTool(FetchPageTextTool());
+      ..registerTool(FetchPageTextTool())
+      ..registerTool(AutonomousCloudVMTool());
     _loadSavedPreferences();
   }
 
@@ -169,6 +174,10 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     // 3. Memory
     final loadedMemory = await SecureKeyStore.getAgentMemory();
 
+    // 3.1 Autonomous Tasks
+    final rawTasks = await SecureKeyStore.getAutonomousTasks();
+    final loadedTasks = AutonomousTask.deserializeList(rawTasks);
+
     // 4. Endpoint
     final savedEndpointId = await SecureKeyStore.getActiveEndpointId();
     if (savedEndpointId != null) {
@@ -185,6 +194,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     setState(() {
       _theme = loadedTheme;
       _memory = loadedMemory;
+      _autonomousTasks = loadedTasks;
     });
   }
 
@@ -233,6 +243,29 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
       theme: _theme,
       agentName: _displayName,
       onOpenCustomization: _openCustomizationStudio,
+    );
+  }
+
+  void _openTeammateWorkspace() {
+    TeammateWorkspaceSheet.show(
+      context,
+      theme: _theme,
+      tasks: _autonomousTasks,
+      onTaskApproved: (task) async {
+        setState(() {
+          final idx = _autonomousTasks.indexWhere((t) => t.id == task.id);
+          if (idx != -1) {
+            _autonomousTasks[idx] = task;
+          }
+        });
+        await SecureKeyStore.saveAutonomousTasks(AutonomousTask.serializeList(_autonomousTasks));
+      },
+      onNewTaskSubmitted: (newTask) async {
+        setState(() {
+          _autonomousTasks.insert(0, newTask);
+        });
+        await SecureKeyStore.saveAutonomousTasks(AutonomousTask.serializeList(_autonomousTasks));
+      },
     );
   }
 
@@ -425,10 +458,22 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
         ],
       ),
       actions: [
+        // AI Teammates & Hand-off Workspace Action (Grok Bot & Muse style)
+        IconButton(
+          tooltip: 'Teammates & Cloud VM Jobs',
+          icon: Badge(
+            isLabelVisible: _autonomousTasks.any((t) => t.pendingApproval != null),
+            backgroundColor: const Color(0xFFD97706),
+            label: const Text('!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+            child: Icon(Icons.hub_outlined, size: 22, color: _theme.primaryAccent),
+          ),
+          onPressed: _openTeammateWorkspace,
+        ),
+
         // Autonomous Browser Action
         IconButton(
           tooltip: 'Open Autonomous Browser',
-          icon: Icon(Icons.public_rounded, size: 22, color: _theme.primaryAccent),
+          icon: Icon(Icons.public_rounded, size: 22, color: _theme.textSecondary),
           onPressed: () {
             AgentBrowserSheet.show(
               context,
@@ -472,6 +517,13 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
+            _buildRailChip(
+              icon: Icons.hub_outlined,
+              label: 'Jobs: ${_autonomousTasks.where((t) => t.status == TaskStatus.running).length} active',
+              color: const Color(0xFFD97706),
+              onTap: _openTeammateWorkspace,
+            ),
+            const SizedBox(width: 8),
             _buildRailChip(
               icon: Icons.psychology_outlined,
               label: 'Soul: $_displayName',
@@ -589,7 +641,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
               children: [
                 _buildPromptSuggestion('What is the current system time?', Icons.access_time),
                 _buildPromptSuggestion('Search web for latest open-source AI models', Icons.travel_explore),
-                _buildPromptSuggestion('Inspect Wikipedia homepage and extract headline', Icons.menu_book),
+                _buildPromptSuggestion('Hand off sales outreach or calendar follow-up to team', Icons.hub_outlined),
                 _buildPromptSuggestion('Recall my remembered profile and preferences', Icons.psychology),
               ],
             ),

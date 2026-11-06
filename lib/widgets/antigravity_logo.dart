@@ -30,7 +30,7 @@ class _AntigravityLogoState extends State<AntigravityLogo>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 6),
+      duration: const Duration(seconds: 4),
     )..repeat();
   }
 
@@ -42,8 +42,8 @@ class _AntigravityLogoState extends State<AntigravityLogo>
 
   void _triggerBoost() {
     if (!widget.isInteractive) return;
-    setState(() => _boost = 2.4);
-    Future.delayed(const Duration(milliseconds: 900), () {
+    setState(() => _boost = 2.0);
+    Future.delayed(const Duration(milliseconds: 700), () {
       if (mounted) setState(() => _boost = 1.0);
     });
     widget.onTap?.call();
@@ -58,7 +58,7 @@ class _AntigravityLogoState extends State<AntigravityLogo>
         builder: (context, child) {
           return CustomPaint(
             size: Size(widget.size, widget.size),
-            painter: _AntigravityPainter(
+            painter: _BitmojiCompanionPainter(
               progress: _controller.value,
               boost: _boost,
               theme: widget.theme,
@@ -70,12 +70,12 @@ class _AntigravityLogoState extends State<AntigravityLogo>
   }
 }
 
-class _AntigravityPainter extends CustomPainter {
+class _BitmojiCompanionPainter extends CustomPainter {
   final double progress;
   final double boost;
   final AppThemeConfig theme;
 
-  _AntigravityPainter({
+  _BitmojiCompanionPainter({
     required this.progress,
     required this.boost,
     required this.theme,
@@ -83,12 +83,13 @@ class _AntigravityPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
+    final cx = size.width / 2;
+    final cy = size.height / 2;
     final radius = size.width / 2;
     final primary = theme.primaryAccent;
     final secondary = theme.secondaryAccent;
 
-    // 1. Soft ethereal aura glow
+    // 1. Soft breathing aura glow
     final auraPaint = Paint()
       ..shader = RadialGradient(
         colors: [
@@ -96,112 +97,182 @@ class _AntigravityPainter extends CustomPainter {
           secondary.withValues(alpha: theme.isDark ? 0.15 : 0.08),
           Colors.transparent,
         ],
-        stops: const [0.0, 0.55, 1.0],
-      ).createShader(Rect.fromCircle(center: center, radius: radius * 1.15));
-    canvas.drawCircle(center, radius * 1.15, auraPaint);
+        stops: const [0.0, 0.65, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: radius * 1.25));
+    canvas.drawCircle(Offset(cx, cy), radius * 1.25, auraPaint);
 
-    // 2. Outer kinetic orbital ring 1 (Clockwise)
-    final ring1Angle = progress * 2 * math.pi * boost;
-    final ring1Paint = Paint()
+    // 2. Halo Floating Energy Ring (Bitmoji Antigravity Crown)
+    final floatY = math.sin(progress * 2 * math.pi * boost) * (size.height * 0.035);
+    final haloCenter = Offset(cx, size.height * 0.16 + floatY);
+    final haloRect = Rect.fromCenter(
+      center: haloCenter,
+      width: size.width * 0.58,
+      height: size.height * 0.14,
+    );
+    final haloPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(1.8, size.width * 0.038)
+      ..strokeWidth = math.max(2.0, size.width * 0.04)
       ..shader = SweepGradient(
-        startAngle: 0.0,
-        endAngle: math.pi * 2,
         colors: [
-          primary.withValues(alpha: 0.1),
+          primary.withValues(alpha: 0.3),
           primary,
           secondary,
-          primary.withValues(alpha: 0.1),
+          primary.withValues(alpha: 0.3),
         ],
-        transform: GradientRotation(ring1Angle),
-      ).createShader(Rect.fromCircle(center: center, radius: radius * 0.85));
+        transform: GradientRotation(progress * 2 * math.pi * boost),
+      ).createShader(haloRect);
+    canvas.drawOval(haloRect, haloPaint);
 
-    canvas.drawCircle(center, radius * 0.85, ring1Paint);
+    // 3. Cute Bitmoji Bot Head Sphere
+    final headCenter = Offset(cx, cy + floatY * 0.5);
+    final headRadius = radius * 0.72;
 
-    // Outer orbiting micro-nodes
-    for (int i = 0; i < 3; i++) {
-      final angle = ring1Angle + (i * 2 * math.pi / 3);
-      final nodePos = Offset(
-        center.dx + radius * 0.85 * math.cos(angle),
-        center.dy + radius * 0.85 * math.sin(angle),
+    final headGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Colors.white,
+        Color.lerp(Colors.white, primary, 0.18)!,
+        Color.lerp(theme.cardColor, primary, 0.28)!,
+      ],
+    );
+    final headPaint = Paint()
+      ..shader = headGradient.createShader(Rect.fromCircle(center: headCenter, radius: headRadius))
+      ..style = PaintingStyle.fill;
+
+    // Soft drop shadow under head
+    canvas.drawCircle(
+      Offset(headCenter.dx, headCenter.dy + 3),
+      headRadius,
+      Paint()
+        ..color = (theme.isDark ? Colors.black45 : const Color(0x1F000000))
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+    );
+
+    // Main head surface
+    canvas.drawCircle(headCenter, headRadius, headPaint);
+
+    // Head border highlight
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.8, size.width * 0.035)
+      ..color = primary.withValues(alpha: 0.45);
+    canvas.drawCircle(headCenter, headRadius, borderPaint);
+
+    // 4. Expressive Visor / Face Screen (Sleek Apple/Bitmoji Pill Shape)
+    final visorRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(headCenter.dx, headCenter.dy + headRadius * 0.04),
+        width: headRadius * 1.48,
+        height: headRadius * 0.88,
+      ),
+      Radius.circular(headRadius * 0.44),
+    );
+
+    final visorPaint = Paint()
+      ..color = const Color(0xFF0F172A)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(visorRect, visorPaint);
+
+    // Visor subtle glossy reflection
+    final glassHighlight = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(alpha: 0.25),
+          Colors.transparent,
+        ],
+      ).createShader(visorRect.outerRect);
+    canvas.drawRRect(visorRect, glassHighlight);
+
+    // 5. Expressive Bitmoji Eyes with Natural Eye-Blink & Tracking
+    final blinkPhase = (progress * 1.5) % 1.0;
+    final isBlinking = blinkPhase > 0.46 && blinkPhase < 0.52;
+
+    final eyeSpacing = headRadius * 0.38;
+    final eyeY = headCenter.dy + headRadius * 0.04;
+    final eyeRadius = headRadius * 0.22;
+
+    final eyeGlowPaint = Paint()
+      ..color = secondary
+      ..style = PaintingStyle.fill;
+
+    if (isBlinking) {
+      // Happy curving blink line
+      final blinkPaint = Paint()
+        ..color = secondary
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(2.2, size.width * 0.042)
+        ..strokeCap = StrokeCap.round;
+
+      // Left eye curved smile
+      final leftPath = Path()
+        ..moveTo(headCenter.dx - eyeSpacing - eyeRadius * 0.7, eyeY)
+        ..quadraticBezierTo(headCenter.dx - eyeSpacing, eyeY + eyeRadius * 0.4, headCenter.dx - eyeSpacing + eyeRadius * 0.7, eyeY);
+      canvas.drawPath(leftPath, blinkPaint);
+
+      // Right eye curved smile
+      final rightPath = Path()
+        ..moveTo(headCenter.dx + eyeSpacing - eyeRadius * 0.7, eyeY)
+        ..quadraticBezierTo(headCenter.dx + eyeSpacing, eyeY + eyeRadius * 0.4, headCenter.dx + eyeSpacing + eyeRadius * 0.7, eyeY);
+      canvas.drawPath(rightPath, blinkPaint);
+    } else {
+      // Big expressive anime/bitmoji eyes with catchlights
+      final eyeCenterLeft = Offset(headCenter.dx - eyeSpacing, eyeY);
+      final eyeCenterRight = Offset(headCenter.dx + eyeSpacing, eyeY);
+
+      canvas.drawCircle(eyeCenterLeft, eyeRadius, eyeGlowPaint);
+      canvas.drawCircle(eyeCenterRight, eyeRadius, eyeGlowPaint);
+
+      // Catchlights / Sparkles in eyes
+      final glintPaint = Paint()..color = Colors.white;
+      canvas.drawCircle(
+        Offset(eyeCenterLeft.dx - eyeRadius * 0.32, eyeCenterLeft.dy - eyeRadius * 0.32),
+        eyeRadius * 0.42,
+        glintPaint,
       );
-      final nodePaint = Paint()
-        ..color = (i == 0 ? secondary : primary)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(nodePos, math.max(2.2, size.width * 0.045), nodePaint);
+      canvas.drawCircle(
+        Offset(eyeCenterRight.dx - eyeRadius * 0.32, eyeCenterRight.dy - eyeRadius * 0.32),
+        eyeRadius * 0.42,
+        glintPaint,
+      );
+
+      // Secondary smaller micro-sparkle
+      canvas.drawCircle(
+        Offset(eyeCenterLeft.dx + eyeRadius * 0.28, eyeCenterLeft.dy + eyeRadius * 0.28),
+        eyeRadius * 0.20,
+        glintPaint,
+      );
+      canvas.drawCircle(
+        Offset(eyeCenterRight.dx + eyeRadius * 0.28, eyeCenterRight.dy + eyeRadius * 0.28),
+        eyeRadius * 0.20,
+        glintPaint,
+      );
     }
 
-    // 3. Counter-rotating inner kinetic ring 2 (Antigravity tilt)
-    final ring2Angle = -progress * 2 * math.pi * 1.4 * boost;
-    final ring2Rect = Rect.fromCenter(
-      center: center,
-      width: radius * 1.25,
-      height: radius * 0.95,
+    // 6. Cute Blush Cheeks
+    final blushPaint = Paint()
+      ..color = const Color(0xFFF43F5E).withValues(alpha: 0.45)
+      ..style = PaintingStyle.fill;
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(headCenter.dx - eyeSpacing * 1.35, eyeY + eyeRadius * 0.95),
+        width: eyeRadius * 0.9,
+        height: eyeRadius * 0.5,
+      ),
+      blushPaint,
     );
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-    canvas.rotate(math.pi / 4);
-    canvas.translate(-center.dx, -center.dy);
-
-    final ring2Paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(1.5, size.width * 0.032)
-      ..shader = SweepGradient(
-        colors: [
-          secondary.withValues(alpha: 0.2),
-          secondary,
-          primary.withValues(alpha: 0.2),
-        ],
-        transform: GradientRotation(ring2Angle),
-      ).createShader(ring2Rect);
-    canvas.drawOval(ring2Rect, ring2Paint);
-    canvas.restore();
-
-    // 4. Center Singularity / Quantum Core
-    final pulse = math.sin(progress * 4 * math.pi) * 0.08 + 1.0;
-    final coreRadius = radius * 0.38 * pulse;
-
-    final corePaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          Colors.white,
-          secondary,
-          primary,
-        ],
-        stops: const [0.0, 0.45, 1.0],
-      ).createShader(Rect.fromCircle(center: center, radius: coreRadius));
-
-    canvas.drawCircle(center, coreRadius, corePaint);
-
-    // 5. Stylized Antigravity 'K' / Spark glyph
-    final glyphPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(1.8, size.width * 0.042)
-      ..strokeCap = StrokeCap.round;
-
-    final glyphScale = size.width * 0.16;
-    // Vertical stem
-    canvas.drawLine(
-      Offset(center.dx - glyphScale * 0.45, center.dy - glyphScale * 0.8),
-      Offset(center.dx - glyphScale * 0.45, center.dy + glyphScale * 0.8),
-      glyphPaint,
-    );
-    // Upper diagonal arm
-    canvas.drawLine(
-      Offset(center.dx - glyphScale * 0.35, center.dy),
-      Offset(center.dx + glyphScale * 0.65, center.dy - glyphScale * 0.8),
-      glyphPaint,
-    );
-    // Lower diagonal arm
-    canvas.drawLine(
-      Offset(center.dx - glyphScale * 0.15, center.dy + glyphScale * 0.15),
-      Offset(center.dx + glyphScale * 0.65, center.dy + glyphScale * 0.8),
-      glyphPaint,
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(headCenter.dx + eyeSpacing * 1.35, eyeY + eyeRadius * 0.95),
+        width: eyeRadius * 0.9,
+        height: eyeRadius * 0.5,
+      ),
+      blushPaint,
     );
   }
 
   @override
-  bool shouldRepaint(covariant _AntigravityPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _BitmojiCompanionPainter oldDelegate) => true;
 }

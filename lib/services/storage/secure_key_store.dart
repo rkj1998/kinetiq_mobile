@@ -18,6 +18,7 @@ class SecureKeyStore {
   static const String _customAgentNameKey = 'kinetiq_custom_agent_name';
   static const String _customSoulPromptKey = 'kinetiq_custom_soul_prompt';
   static const String _agentMemoryKey = 'kinetiq_agent_memory';
+  static const String _autonomousTasksKey = 'kinetiq_autonomous_tasks';
   static const String _themeStyleKey = 'kinetiq_theme_style';
   static const String _themeAccentKey = 'kinetiq_theme_accent';
   static const String _kineticAnimKey = 'kinetiq_kinetic_animations';
@@ -85,6 +86,15 @@ class SecureKeyStore {
   static Future<AgentMemory> getAgentMemory() async {
     final raw = await _storage.read(key: _agentMemoryKey);
     return AgentMemory.deserialize(raw);
+  }
+
+  // --- Grok Bot & Muse Autonomous Tasks Store ---
+  static Future<void> saveAutonomousTasks(String serializedTasks) async {
+    await _storage.write(key: _autonomousTasksKey, value: serializedTasks);
+  }
+
+  static Future<String?> getAutonomousTasks() async {
+    return await _storage.read(key: _autonomousTasksKey);
   }
 
   // --- Themes & Visual Appearance ---
