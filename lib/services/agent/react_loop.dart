@@ -18,13 +18,15 @@ class ReActAgent {
   final String model;
   final int maxTurns;
   final String? systemPrompt;
+  final String? memoryContext;
 
   ReActAgent({
     required this.client,
     required this.registry,
     this.model = 'llama-3.3-70b-versatile',
-    this.maxTurns = 5,
+    this.maxTurns = 6,
     this.systemPrompt,
+    this.memoryContext,
   });
 
   Stream<AgentStep> run({
@@ -32,8 +34,17 @@ class ReActAgent {
     List<Map<String, dynamic>> history = const [],
   }) async* {
     final messages = <Map<String, dynamic>>[];
+    final promptBuffer = StringBuffer();
+
     if (systemPrompt != null && systemPrompt!.trim().isNotEmpty) {
-      messages.add({'role': 'system', 'content': systemPrompt!});
+      promptBuffer.writeln(systemPrompt!.trim());
+    }
+    if (memoryContext != null && memoryContext!.trim().isNotEmpty) {
+      promptBuffer.writeln(memoryContext!.trim());
+    }
+
+    if (promptBuffer.isNotEmpty) {
+      messages.add({'role': 'system', 'content': promptBuffer.toString().trim()});
     }
     messages.addAll(history);
     messages.add({'role': 'user', 'content': userPrompt});

@@ -13,6 +13,7 @@ class AgentCharacter {
   final Color secondaryColor;
   final Color glowColor;
   final String defaultSystemPrompt;
+  final bool isCustom;
 
   const AgentCharacter({
     required this.id,
@@ -25,9 +26,50 @@ class AgentCharacter {
     required this.secondaryColor,
     required this.glowColor,
     required this.defaultSystemPrompt,
+    this.isCustom = false,
   });
 
+  AgentCharacter copyWith({
+    String? id,
+    String? name,
+    String? role,
+    String? tag,
+    String? description,
+    String? avatarSvgSeed,
+    Color? primaryColor,
+    Color? secondaryColor,
+    Color? glowColor,
+    String? defaultSystemPrompt,
+    bool? isCustom,
+  }) {
+    return AgentCharacter(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      role: role ?? this.role,
+      tag: tag ?? this.tag,
+      description: description ?? this.description,
+      avatarSvgSeed: avatarSvgSeed ?? this.avatarSvgSeed,
+      primaryColor: primaryColor ?? this.primaryColor,
+      secondaryColor: secondaryColor ?? this.secondaryColor,
+      glowColor: glowColor ?? this.glowColor,
+      defaultSystemPrompt: defaultSystemPrompt ?? this.defaultSystemPrompt,
+      isCustom: isCustom ?? this.isCustom,
+    );
+  }
+
   static const List<AgentCharacter> presets = [
+    AgentCharacter(
+      id: 'antigravity',
+      name: 'Antigravity',
+      role: 'Autonomous Quantum Companion',
+      tag: 'Quantum Elegance',
+      description: 'Google Antigravity-inspired zero-friction AI assistant with graceful reasoning, deep knowledge, and adaptive soul.',
+      avatarSvgSeed: 'antigravity-core',
+      primaryColor: Color(0xFF1A73E8),
+      secondaryColor: Color(0xFF4285F4),
+      glowColor: Color(0xFF38BDF8),
+      defaultSystemPrompt: 'You are Antigravity, a next-generation autonomous AI companion inspired by Google and Apple design simplicity. You are elegant, thoughtful, proactive, and concise. You use available tools autonomously, respect user privacy, and deliver pristine answers.',
+    ),
     AgentCharacter(
       id: 'muse',
       name: 'Muse',

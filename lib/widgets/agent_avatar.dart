@@ -110,12 +110,12 @@ class _AgentAvatarState extends State<AgentAvatar>
                     ],
                   ),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.35),
+                    color: Colors.white.withValues(alpha: 0.4),
                     width: 1.8,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.45),
+                      color: Colors.black.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 3),
                     ),
@@ -144,7 +144,7 @@ class _AgentAvatarState extends State<AgentAvatar>
                   decoration: BoxDecoration(
                     color: _getStatusBadgeColor(),
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFF07080D), width: 2),
+                    border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
                       BoxShadow(
                         color: _getStatusBadgeColor().withValues(alpha: 0.6),
@@ -257,6 +257,29 @@ class _BotFacePainter extends CustomPainter {
 
     // Character-specific custom facial cyber aesthetics
     switch (characterId) {
+      case 'antigravity':
+        // Antigravity has Google Quantum floating oval lenses with soft horizontal pupils
+        final blink = (progress > 0.48 && progress < 0.52);
+        final eyeW = size.width * 0.14;
+        final eyeH = blink ? 2.0 : size.height * 0.11;
+        final lensRRect = RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(cx - eyeSpacing, eyeY), width: eyeW, height: eyeH),
+          Radius.circular(size.width * 0.06),
+        );
+        final lensRRectRight = RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(cx + eyeSpacing, eyeY), width: eyeW, height: eyeH),
+          Radius.circular(size.width * 0.06),
+        );
+        canvas.drawRRect(lensRRect, eyePaint);
+        canvas.drawRRect(lensRRectRight, eyePaint);
+
+        if (!blink) {
+          final coreDotPaint = Paint()..color = Colors.white;
+          canvas.drawCircle(Offset(cx - eyeSpacing, eyeY), 2.2, coreDotPaint);
+          canvas.drawCircle(Offset(cx + eyeSpacing, eyeY), 2.2, coreDotPaint);
+        }
+        break;
+
       case 'titan':
         // Titan has wide tactical cyber optics
         final eyeW = size.width * 0.15;
@@ -307,7 +330,6 @@ class _BotFacePainter extends CustomPainter {
         canvas.drawCircle(Offset(cx - eyeSpacing, eyeY), eyeR, eyePaint);
         canvas.drawCircle(Offset(cx + eyeSpacing, eyeY), eyeR, eyePaint);
 
-        // Highlight glints
         if (!blink) {
           final glintPaint = Paint()..color = Colors.white;
           canvas.drawCircle(Offset(cx - eyeSpacing - 2, eyeY - 2), eyeR * 0.35, glintPaint);

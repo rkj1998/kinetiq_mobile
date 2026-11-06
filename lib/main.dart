@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'models/agent_character.dart';
+import 'models/agent_memory.dart';
+import 'models/app_theme_config.dart';
 import 'models/endpoint_config.dart';
 import 'services/llm/openai_adapter.dart';
 import 'services/tools/tool_registry.dart';
@@ -10,38 +12,52 @@ import 'services/tools/web_tools.dart';
 import 'services/agent/react_loop.dart';
 import 'services/storage/secure_key_store.dart';
 import 'widgets/agent_avatar.dart';
-import 'widgets/character_selector_sheet.dart';
-import 'widgets/network_endpoint_sheet.dart';
+import 'widgets/antigravity_logo.dart';
+import 'widgets/antigravity_startup_modal.dart';
+import 'widgets/customization_studio_sheet.dart';
 import 'widgets/agent_browser_sheet.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
+    statusBarIconBrightness: Brightness.dark,
   ));
   runApp(const KinetiqApp());
 }
 
-class KinetiqApp extends StatelessWidget {
+class KinetiqApp extends StatefulWidget {
   const KinetiqApp({super.key});
+
+  static KinetiqAppState? of(BuildContext context) =>
+      context.findAncestorStateOfType<KinetiqAppState>();
+
+  @override
+  State<KinetiqApp> createState() => KinetiqAppState();
+}
+
+class KinetiqAppState extends State<KinetiqApp> {
+  AppThemeConfig _theme = const AppThemeConfig(
+    style: ThemeStyle.antigravityLight,
+    accent: ThemeAccent.googleBlue,
+  );
+
+  void updateTheme(AppThemeConfig newTheme) {
+    setState(() => _theme = newTheme);
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Kinetiq',
+      title: 'Kinetiq Antigravity',
       debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.dark,
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF07080D),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF6366F1),
-          secondary: Color(0xFF10B981),
-          surface: Color(0xFF0F111A),
-        ),
+      themeMode: _theme.isDark ? ThemeMode.dark : ThemeMode.light,
+      theme: _theme.toThemeData(),
+      darkTheme: _theme.toThemeData(),
+      home: KinetiqChatScreen(
+        theme: _theme,
+        onThemeChanged: updateTheme,
       ),
-      home: const KinetiqChatScreen(),
     );
   }
 }
@@ -63,7 +79,14 @@ class ChatEntry {
 }
 
 class KinetiqChatScreen extends StatefulWidget {
-  const KinetiqChatScreen({super.key});
+  final AppThemeConfig theme;
+  final ValueChanged<AppThemeConfig> onThemeChanged;
+
+  const KinetiqChatScreen({
+    super.key,
+    required this.theme,
+    required this.onThemeChanged,
+  });
 
   @override
   State<KinetiqChatScreen> createState() => _KinetiqChatScreenState();
@@ -77,9 +100,15 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
   List<AgentStep> _currentTurnSteps = [];
   bool _isProcessing = false;
 
-  AgentCharacter _currentCharacter = AgentCharacter.presets.first; // Muse by default
-  EndpointConfig _currentEndpoint = EndpointConfig.defaultPresets.first; // Groq Cloud by default
+  late AppThemeConfig _theme;
+  AgentCharacter _currentCharacter = AgentCharacter.presets.first; // Antigravity default
+  String _customAgentName = '';
+  AgentMemory _memory = const AgentMemory();
+  EndpointConfig _currentEndpoint = EndpointConfig.defaultPresets.first; // Groq Cloud default
   late final ToolRegistry _registry;
+
+  String get _displayName =>
+      _customAgentName.isNotEmpty ? _customAgentName : _currentCharacter.name;
 
   AgentMood get _currentMood {
     if (!_isProcessing) return AgentMood.idle;
@@ -92,6 +121,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
   @override
   void initState() {
     super.initState();
+    _theme = widget.theme;
     _registry = ToolRegistry()
       ..registerTool(GetSystemTimeTool())
       ..registerTool(WebSearchTool())
@@ -99,15 +129,47 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     _loadSavedPreferences();
   }
 
+  @override
+  void didUpdateWidget(covariant KinetiqChatScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.theme != widget.theme) {
+      setState(() => _theme = widget.theme);
+    }
+  }
+
   Future<void> _loadSavedPreferences() async {
+    // 1. Theme
+    final savedStyle = await SecureKeyStore.getThemeStyle();
+    final savedAccent = await SecureKeyStore.getThemeAccent();
+    final savedAnim = await SecureKeyStore.getKineticAnimations();
+    final loadedTheme = AppThemeConfig(
+      style: savedStyle,
+      accent: savedAccent,
+      enableKineticAnimations: savedAnim,
+    );
+    widget.onThemeChanged(loadedTheme);
+
+    // 2. Persona & Custom Name
     final savedPersonaId = await SecureKeyStore.getActivePersona();
     if (savedPersonaId != null) {
       final found = AgentCharacter.presets.where((p) => p.id == savedPersonaId);
       if (found.isNotEmpty) {
-        setState(() => _currentCharacter = found.first);
+        _currentCharacter = found.first;
       }
     }
+    final savedCustomName = await SecureKeyStore.getCustomAgentName();
+    if (savedCustomName != null && savedCustomName.trim().isNotEmpty) {
+      _customAgentName = savedCustomName.trim();
+    }
+    final savedCustomSoul = await SecureKeyStore.getCustomSoulPrompt();
+    if (savedCustomSoul != null && savedCustomSoul.trim().isNotEmpty) {
+      _currentCharacter = _currentCharacter.copyWith(defaultSystemPrompt: savedCustomSoul);
+    }
 
+    // 3. Memory
+    final loadedMemory = await SecureKeyStore.getAgentMemory();
+
+    // 4. Endpoint
     final savedEndpointId = await SecureKeyStore.getActiveEndpointId();
     if (savedEndpointId != null) {
       final found = EndpointConfig.defaultPresets.where((e) => e.id == savedEndpointId);
@@ -115,13 +177,15 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
         _currentEndpoint = found.first;
       }
     }
-
     final savedKey = await SecureKeyStore.getApiKey(_currentEndpoint.id);
     if (savedKey != null && savedKey.isNotEmpty) {
-      setState(() {
-        _currentEndpoint = _currentEndpoint.copyWith(apiKey: savedKey);
-      });
+      _currentEndpoint = _currentEndpoint.copyWith(apiKey: savedKey);
     }
+
+    setState(() {
+      _theme = loadedTheme;
+      _memory = loadedMemory;
+    });
   }
 
   void _scrollToBottom() {
@@ -136,24 +200,39 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     });
   }
 
-  void _showCharacterPicker() {
-    CharacterSelectorSheet.show(
+  void _openCustomizationStudio() {
+    CustomizationStudioSheet.show(
       context,
+      currentTheme: _theme,
       currentCharacter: _currentCharacter,
-      onCharacterSelected: (char) async {
-        await SecureKeyStore.saveActivePersona(char.id);
-        setState(() => _currentCharacter = char);
+      customAgentName: _displayName,
+      currentMemory: _memory,
+      currentEndpoint: _currentEndpoint,
+      onSave: ({
+        required theme,
+        required character,
+        required agentName,
+        required memory,
+        required endpoint,
+      }) {
+        widget.onThemeChanged(theme);
+        setState(() {
+          _theme = theme;
+          _currentCharacter = character;
+          _customAgentName = agentName;
+          _memory = memory;
+          _currentEndpoint = endpoint;
+        });
       },
     );
   }
 
-  void _showEndpointSettings() {
-    NetworkEndpointSheet.show(
+  void _openStartupTour() {
+    AntigravityStartupModal.show(
       context,
-      currentConfig: _currentEndpoint,
-      onConfigSaved: (config) {
-        setState(() => _currentEndpoint = config);
-      },
+      theme: _theme,
+      agentName: _displayName,
+      onOpenCustomization: _openCustomizationStudio,
     );
   }
 
@@ -162,7 +241,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     if (query.isEmpty) return;
 
     if (_currentEndpoint.apiKey.trim().isEmpty && !_currentEndpoint.isLocal) {
-      _showEndpointSettings();
+      _openCustomizationStudio();
       return;
     }
 
@@ -183,11 +262,13 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
       baseUrl: _currentEndpoint.baseUrl.trim(),
     );
 
+    // Dynamic prompt with persona soul and injected memory context
     final agent = ReActAgent(
       client: adapter,
       registry: _registry,
       model: _currentEndpoint.selectedModel,
       systemPrompt: _currentCharacter.defaultSystemPrompt,
+      memoryContext: _memory.toPromptContext(),
       maxTurns: 6,
     );
 
@@ -238,7 +319,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF07080D),
+      backgroundColor: _theme.backgroundColor,
       appBar: _buildTopNav(),
       body: Column(
         children: [
@@ -270,54 +351,73 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
 
   PreferredSizeWidget _buildTopNav() {
     return AppBar(
-      backgroundColor: const Color(0xFF0C0E17),
+      backgroundColor: _theme.surfaceColor,
+      surfaceTintColor: Colors.transparent,
       elevation: 0,
+      titleSpacing: 16,
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(color: _theme.borderColor, height: 1),
+      ),
       title: Row(
         children: [
+          // Animated Antigravity Logo that triggers boost & tour
+          AntigravityLogo(
+            size: 36,
+            theme: _theme,
+            onTap: _openStartupTour,
+          ),
+          const SizedBox(width: 8),
           GestureDetector(
-            onTap: _showCharacterPicker,
+            onTap: _openCustomizationStudio,
             child: AgentAvatar(
               character: _currentCharacter,
               mood: _currentMood,
-              size: 38,
+              size: 32,
               showBadge: true,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           GestureDetector(
-            onTap: _showCharacterPicker,
+            onTap: _openCustomizationStudio,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Text(
-                      _currentCharacter.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                      _displayName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: _theme.textPrimary,
+                        letterSpacing: -0.3,
+                      ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: _currentCharacter.primaryColor.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(6),
+                        color: _theme.primaryAccent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         _currentCharacter.tag,
                         style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: _currentCharacter.glowColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: _theme.primaryAccent,
                         ),
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 1),
                 Text(
                   _currentEndpoint.isLocal
-                      ? 'Local: ${_currentEndpoint.selectedModel}'
+                      ? 'LAN: ${_currentEndpoint.selectedModel}'
                       : '${_currentEndpoint.name.split('(').first.trim()} • ${_currentEndpoint.selectedModel}',
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+                  style: TextStyle(color: _theme.textSecondary, fontSize: 11),
                 ),
               ],
             ),
@@ -325,10 +425,10 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
         ],
       ),
       actions: [
-        // Autonomous Browser Action Button
+        // Autonomous Browser Action
         IconButton(
           tooltip: 'Open Autonomous Browser',
-          icon: const Icon(Icons.public_rounded, size: 21, color: Color(0xFF38BDF8)),
+          icon: Icon(Icons.public_rounded, size: 22, color: _theme.primaryAccent),
           onPressed: () {
             AgentBrowserSheet.show(
               context,
@@ -338,23 +438,23 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
           },
         ),
 
-        // Endpoint & BYOK Button
+        // Customization Studio & Memory Brain Button
         IconButton(
-          tooltip: 'Neural Endpoint Settings',
+          tooltip: 'Customization Studio & Brain Settings',
           icon: Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
-              color: const Color(0xFF181C2E),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF262D4A)),
+              color: _theme.cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _theme.borderColor),
             ),
             child: Icon(
-              _currentEndpoint.isLocal ? Icons.lan_rounded : Icons.tune_rounded,
-              size: 16,
-              color: _currentEndpoint.isLocal ? const Color(0xFF10B981) : const Color(0xFF818CF8),
+              Icons.tune_rounded,
+              size: 18,
+              color: _theme.primaryAccent,
             ),
           ),
-          onPressed: _showEndpointSettings,
+          onPressed: _openCustomizationStudio,
         ),
         const SizedBox(width: 8),
       ],
@@ -364,33 +464,42 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
   Widget _buildQuickActionRail() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0C0E17),
-        border: Border(bottom: BorderSide(color: Color(0xFF161926))),
+      decoration: BoxDecoration(
+        color: _theme.surfaceColor,
+        border: Border(bottom: BorderSide(color: _theme.borderColor)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
             _buildRailChip(
-              icon: Icons.face_retouching_natural,
-              label: 'Persona: ${_currentCharacter.name}',
-              color: _currentCharacter.glowColor,
-              onTap: _showCharacterPicker,
+              icon: Icons.psychology_outlined,
+              label: 'Soul: $_displayName',
+              color: _theme.primaryAccent,
+              onTap: _openCustomizationStudio,
             ),
             const SizedBox(width: 8),
             _buildRailChip(
-              icon: _currentEndpoint.isLocal ? Icons.lan : Icons.bolt,
+              icon: Icons.bookmark_added_outlined,
+              label: 'Memory: ${_memory.facts.length} facts',
+              color: const Color(0xFF059669),
+              onTap: _openCustomizationStudio,
+            ),
+            const SizedBox(width: 8),
+            _buildRailChip(
+              icon: Icons.palette_outlined,
+              label: _theme.style == ThemeStyle.antigravityLight
+                  ? 'Light'
+                  : (_theme.style == ThemeStyle.antigravityNebula ? 'Nebula' : 'Dark'),
+              color: _theme.secondaryAccent,
+              onTap: _openCustomizationStudio,
+            ),
+            const SizedBox(width: 8),
+            _buildRailChip(
+              icon: _currentEndpoint.isLocal ? Icons.wifi : Icons.bolt,
               label: _currentEndpoint.selectedModel.split('/').last,
-              color: const Color(0xFFF59E0B),
-              onTap: _showEndpointSettings,
-            ),
-            const SizedBox(width: 8),
-            _buildRailChip(
-              icon: Icons.language,
-              label: 'In-App Webview',
-              color: const Color(0xFF06B6D4),
-              onTap: () => AgentBrowserSheet.show(context, initialUrl: 'https://duckduckgo.com'),
+              color: const Color(0xFFD97706),
+              onTap: _openCustomizationStudio,
             ),
           ],
         ),
@@ -407,20 +516,24 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFF141724),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF23283B)),
+          color: _theme.cardColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _theme.borderColor),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: color),
+            Icon(icon, size: 14, color: color),
             const SizedBox(width: 6),
             Text(
               label,
-              style: const TextStyle(fontSize: 11, color: Color(0xFFCBD5E1), fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 12,
+                color: _theme.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -429,44 +542,55 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
   }
 
   Widget _buildHeroEmptyState() {
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Good morning'
+        : (hour < 17 ? 'Good afternoon' : 'Good evening');
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AgentAvatar(
-              character: _currentCharacter,
-              mood: AgentMood.thinking,
-              size: 88,
+            // Kinetic Antigravity Hero Logo
+            AntigravityLogo(
+              size: 110,
+              theme: _theme,
+              onTap: _openStartupTour,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             Text(
-              'Meet ${_currentCharacter.name}',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: -0.5,
+              '$greeting, ${_memory.userName}',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: _theme.textPrimary,
+                letterSpacing: -0.6,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
-              _currentCharacter.description,
+              'How can $_displayName assist your workflow today?',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8), height: 1.4),
+              style: TextStyle(
+                fontSize: 14,
+                color: _theme.textSecondary,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 24),
 
-            // Suggested prompt cards
+            // Google/Apple Style Quick Starter Chips
             Wrap(
               spacing: 8,
               runSpacing: 8,
               alignment: WrapAlignment.center,
               children: [
-                _buildPromptSuggestion('What is the current time?'),
-                _buildPromptSuggestion('Search web for latest AI news'),
-                _buildPromptSuggestion('Inspect Wikipedia homepage'),
+                _buildPromptSuggestion('What is the current system time?', Icons.access_time),
+                _buildPromptSuggestion('Search web for latest open-source AI models', Icons.travel_explore),
+                _buildPromptSuggestion('Inspect Wikipedia homepage and extract headline', Icons.menu_book),
+                _buildPromptSuggestion('Recall my remembered profile and preferences', Icons.psychology),
               ],
             ),
           ],
@@ -475,25 +599,33 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     );
   }
 
-  Widget _buildPromptSuggestion(String prompt) {
+  Widget _buildPromptSuggestion(String prompt, IconData icon) {
     return GestureDetector(
       onTap: () {
         _promptController.text = prompt;
         _dispatchPrompt();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFF131622),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF22273D)),
+          color: _theme.cardColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _theme.borderColor),
+          boxShadow: _theme.subtleShadow,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.auto_awesome, size: 14, color: _currentCharacter.primaryColor),
+            Icon(icon, size: 15, color: _theme.primaryAccent),
             const SizedBox(width: 8),
-            Text(prompt, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+            Text(
+              prompt,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: _theme.textPrimary,
+              ),
+            ),
           ],
         ),
       ),
@@ -505,29 +637,40 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
       alignment: Alignment.centerRight,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF2D3249), Color(0xFF1F2333)],
+            colors: [
+              _theme.primaryAccent,
+              _theme.secondaryAccent,
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(22),
             topRight: Radius.circular(6),
-            bottomLeft: Radius.circular(20),
-            bottomRight: Radius.circular(20),
+            bottomLeft: Radius.circular(22),
+            bottomRight: Radius.circular(22),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black26,
-              blurRadius: 8,
-              offset: Offset(0, 3),
+              color: _theme.primaryAccent.withValues(alpha: 0.28),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
-        child: Text(text, style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.35)),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 15,
+            color: _theme.userBubbleText,
+            height: 1.35,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ),
     );
   }
@@ -539,19 +682,13 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
         color: Colors.transparent,
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 8),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.92),
           decoration: BoxDecoration(
-            color: const Color(0xFF10121C),
-            border: Border.all(color: entry.character.primaryColor.withValues(alpha: 0.2)),
-            borderRadius: BorderRadius.circular(22),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black45,
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            color: _theme.agentBubbleColor,
+            border: Border.all(color: _theme.borderColor),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: _theme.subtleShadow,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -559,33 +696,44 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
               // Agent identity banner
               Row(
                 children: [
-                  AgentAvatar(character: entry.character, size: 24),
-                  const SizedBox(width: 8),
+                  AgentAvatar(
+                    character: entry.character,
+                    size: 26,
+                  ),
+                  const SizedBox(width: 10),
                   Text(
-                    entry.character.name,
+                    _displayName,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: entry.character.glowColor,
+                      color: _theme.textPrimary,
                     ),
                   ),
                   const Spacer(),
                   if (entry.browserUrl != null)
                     TextButton.icon(
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         visualDensity: VisualDensity.compact,
-                        backgroundColor: const Color(0xFF06B6D4).withValues(alpha: 0.15),
+                        backgroundColor: _theme.primaryAccent.withValues(alpha: 0.12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      icon: const Icon(Icons.open_in_browser, size: 14, color: Color(0xFF38BDF8)),
-                      label: const Text('Open Page', style: TextStyle(fontSize: 11, color: Color(0xFF38BDF8))),
+                      icon: Icon(Icons.open_in_browser, size: 14, color: _theme.primaryAccent),
+                      label: Text(
+                        'Inspect URL',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _theme.primaryAccent,
+                        ),
+                      ),
                       onPressed: () {
                         AgentBrowserSheet.show(context, initialUrl: entry.browserUrl!);
                       },
                     ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
               // Execution Action Drawer
               if (entry.steps.isNotEmpty) ...[
@@ -595,15 +743,19 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
                     color: Colors.transparent,
                     child: ExpansionTile(
                       tilePadding: EdgeInsets.zero,
-                      collapsedIconColor: Colors.grey,
-                      iconColor: entry.character.primaryColor,
+                      collapsedIconColor: _theme.textSecondary,
+                      iconColor: _theme.primaryAccent,
                       title: Row(
                         children: [
-                          Icon(Icons.commit, size: 16, color: entry.character.primaryColor),
+                          Icon(Icons.commit, size: 16, color: _theme.primaryAccent),
                           const SizedBox(width: 8),
                           Text(
                             'Executed ${entry.steps.where((s) => s.type == StepType.toolCall).length} actions',
-                            style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: _theme.textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
@@ -611,15 +763,24 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
                     ),
                   ),
                 ),
-                const Divider(color: Color(0xFF1B1E2D), height: 16),
+                Divider(color: _theme.borderColor, height: 16),
               ],
 
               // Markdown content
               MarkdownBody(
                 data: entry.text,
                 styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                  p: const TextStyle(fontSize: 15, height: 1.45, color: Color(0xFFE2E8F0)),
-                  code: const TextStyle(backgroundColor: Color(0xFF1B1D2A), color: Color(0xFF93C5FD)),
+                  p: TextStyle(fontSize: 15, height: 1.45, color: _theme.textPrimary),
+                  code: TextStyle(
+                    backgroundColor: _theme.cardColor,
+                    color: _theme.primaryAccent,
+                    fontSize: 13,
+                  ),
+                  codeblockDecoration: BoxDecoration(
+                    color: _theme.cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _theme.borderColor),
+                  ),
                 ),
               ),
             ],
@@ -632,25 +793,30 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
   Widget _buildLiveExecutionStatus() {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF10121C),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _currentCharacter.primaryColor.withValues(alpha: 0.35)),
+        color: _theme.agentBubbleColor,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _theme.primaryAccent.withValues(alpha: 0.35)),
+        boxShadow: _theme.subtleShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              AgentAvatar(character: _currentCharacter, mood: AgentMood.thinking, size: 22),
+              AgentAvatar(
+                character: _currentCharacter,
+                mood: AgentMood.thinking,
+                size: 24,
+              ),
               const SizedBox(width: 10),
               Text(
-                '${_currentCharacter.name} is evaluating...',
+                '$_displayName is evaluating...',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: _currentCharacter.glowColor,
+                  color: _theme.primaryAccent,
                 ),
               ),
             ],
@@ -668,23 +834,23 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     switch (step.type) {
       case StepType.toolCall:
         icon = Icons.build_circle_outlined;
-        color = const Color(0xFFF59E0B);
+        color = const Color(0xFFD97706);
         break;
       case StepType.toolResult:
         icon = Icons.check_circle_outline;
-        color = const Color(0xFF10B981);
+        color = const Color(0xFF059669);
         break;
       case StepType.thought:
         icon = Icons.psychology_outlined;
-        color = _currentCharacter.primaryColor;
+        color = _theme.primaryAccent;
         break;
       case StepType.error:
         icon = Icons.error_outline;
-        color = Colors.redAccent;
+        color = const Color(0xFFEF4444);
         break;
       default:
         icon = Icons.info_outline;
-        color = Colors.grey;
+        color = _theme.textSecondary;
     }
 
     return Padding(
@@ -697,7 +863,11 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
           Expanded(
             child: Text(
               '${step.title}: ${step.content}',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade400, fontFamily: 'monospace'),
+              style: TextStyle(
+                fontSize: 12,
+                color: _theme.textSecondary,
+                fontFamily: 'monospace',
+              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -710,62 +880,66 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
   Widget _buildInputBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0C0E17),
-        border: Border(top: BorderSide(color: Color(0xFF171A26))),
+      decoration: BoxDecoration(
+        color: _theme.surfaceColor,
+        border: Border(top: BorderSide(color: _theme.borderColor)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF131624),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFF22273D)),
-              ),
-              child: TextField(
-                controller: _promptController,
-                style: const TextStyle(fontSize: 15, color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Ask ${_currentCharacter.name} to browse, code, or execute...',
-                  hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 13.5),
-                  border: InputBorder.none,
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                decoration: BoxDecoration(
+                  color: _theme.inputBackgroundColor,
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(color: _theme.borderColor),
+                  boxShadow: _theme.subtleShadow,
                 ),
-                onSubmitted: (_) => _dispatchPrompt(),
+                child: TextField(
+                  controller: _promptController,
+                  style: TextStyle(fontSize: 15, color: _theme.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'Ask $_displayName to browse, code, or execute...',
+                    hintStyle: TextStyle(color: _theme.textSecondary, fontSize: 13.5),
+                    border: InputBorder.none,
+                  ),
+                  onSubmitted: (_) => _dispatchPrompt(),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: _isProcessing ? null : _dispatchPrompt,
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    _currentCharacter.primaryColor,
-                    _currentCharacter.secondaryColor,
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: _isProcessing ? null : _dispatchPrompt,
+              child: Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      _theme.primaryAccent,
+                      _theme.secondaryAccent,
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: _theme.primaryAccent.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
                   ],
                 ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: _currentCharacter.glowColor.withValues(alpha: 0.35),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                _isProcessing ? Icons.hourglass_top_rounded : Icons.arrow_upward_rounded,
-                color: Colors.white,
-                size: 21,
+                child: Icon(
+                  _isProcessing ? Icons.hourglass_top_rounded : Icons.arrow_upward_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
