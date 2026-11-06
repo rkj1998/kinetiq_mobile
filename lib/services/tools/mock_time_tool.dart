@@ -1,4 +1,4 @@
-﻿import 'base_tool.dart';
+import 'base_tool.dart';
 
 class GetSystemTimeTool extends BaseTool {
   @override

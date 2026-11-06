@@ -1,4 +1,4 @@
-﻿import 'package:dio/dio.dart';
+import 'package:dio/dio.dart';
 
 class OpenAIAdapter {
   final Dio _dio = Dio();
@@ -33,6 +33,6 @@ class OpenAIAdapter {
       ),
     );
 
-    return response.data['choices'][0]['message'];
+    return response.data['choices'][0]['message'] as Map<String, dynamic>;
   }
 }

@@ -1,4 +1,4 @@
-﻿import 'package:dio/dio.dart';
+import 'package:dio/dio.dart';
 import 'base_tool.dart';
 
 class WebSearchTool extends BaseTool {
@@ -8,7 +8,7 @@ class WebSearchTool extends BaseTool {
   String get name => 'web_search';
 
   @override
-  String get description => 'Searches the web for up-to-date information, news, or articles and returns title, snippet, and URLs.';
+  String get description => 'Searches the web for information, news, or articles.';
 
   @override
   Map<String, dynamic> get parametersSchema => {
@@ -44,7 +44,7 @@ class WebSearchTool extends BaseTool {
       final links = titleRegex.allMatches(html).take(4).map((m) => m.group(1)).toList();
 
       if (snippets.isEmpty) {
-        return 'No direct snippet results found for "$query". Try refining search keywords.';
+        return 'No direct snippet results found for "$query".';
       }
 
       StringBuffer sb = StringBuffer();
@@ -67,7 +67,7 @@ class FetchPageTextTool extends BaseTool {
   String get name => 'read_web_page';
 
   @override
-  String get description => 'Reads and extracts readable text from a specific URL.';
+  String get description => 'Reads and extracts readable text from a URL.';
 
   @override
   Map<String, dynamic> get parametersSchema => {

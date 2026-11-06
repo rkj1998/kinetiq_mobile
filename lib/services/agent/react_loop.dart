@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import '../llm/openai_adapter.dart';
 import '../tools/tool_registry.dart';
 
@@ -27,7 +27,7 @@ class ReActAgent {
 
   Stream<AgentStep> run({
     required String userPrompt,
-    required List> history,
+    List> history = const [],
   }) async* {
     final messages = List>.from(history);
     messages.add({'role': 'user', 'content': userPrompt});
@@ -94,7 +94,7 @@ class ReActAgent {
           });
         }
       } else {
-        final finalContent = responseMessage['content'] ?? '';
+        final finalContent = responseMessage['content']?.toString() ?? '';
         yield AgentStep(
           type: StepType.finalAnswer,
           title: 'Response',

@@ -1,4 +1,4 @@
-﻿abstract class BaseTool {
+abstract class BaseTool {
   String get name;
   String get description;
   Map<String, dynamic> get parametersSchema;
