@@ -1,7 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'services/llm/openai_adapter.dart';
 import 'services/tools/tool_registry.dart';
 import 'services/tools/mock_time_tool.dart';
@@ -34,7 +33,6 @@ class KinetiqApp extends StatelessWidget {
           secondary: Color(0xFF10B981),
           surface: Color(0xFF13151F),
         ),
-        fontFamily: 'Roboto',
       ),
       home: const KinetiqChatScreen(),
     );
@@ -42,7 +40,7 @@ class KinetiqApp extends StatelessWidget {
 }
 
 class ChatEntry {
-  final String role; // 'user' or 'agent'
+  final String role;
   final String text;
   final List<AgentStep> steps;
   ChatEntry({required this.role, required this.text, this.steps = const []});
@@ -107,11 +105,11 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
           children: [
             Row(
               children: [
-                const Icon(LucideIcons.settings2, color: Color(0xFF6366F1), size: 22),
+                const Icon(Icons.tune, color: Color(0xFF6366F1), size: 22),
                 const SizedBox(width: 10),
                 const Text('BYOK & Engine Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const Spacer(),
-                IconButton(icon: const Icon(LucideIcons.x, size: 20), onPressed: () => Navigator.pop(ctx)),
+                IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => Navigator.pop(ctx)),
               ],
             ),
             const SizedBox(height: 16),
@@ -242,7 +240,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
                 gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(LucideIcons.sparkles, size: 18, color: Colors.white),
+              child: const Icon(Icons.auto_awesome, size: 18, color: Colors.white),
             ),
             const SizedBox(width: 12),
             Column(
@@ -256,7 +254,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(LucideIcons.slidersHorizontal, size: 20),
+            icon: const Icon(Icons.tune, size: 20),
             onPressed: _showSettingsModal,
           ),
           const SizedBox(width: 6),
@@ -294,9 +292,9 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
         margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF282C3F),
-          borderRadius: const BorderRadius.only(
+        decoration: const BoxDecoration(
+          color: Color(0xFF282C3F),
+          borderRadius: BorderRadius.only(
             topLeft: Radius.circular(18),
             topRight: Radius.circular(4),
             bottomLeft: Radius.circular(18),
@@ -332,7 +330,7 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
                   iconColor: const Color(0xFF6366F1),
                   title: Row(
                     children: [
-                      const Icon(LucideIcons.gitCommit, size: 16, color: Color(0xFF6366F1)),
+                      const Icon(Icons.commit, size: 16, color: Color(0xFF6366F1)),
                       const SizedBox(width: 8),
                       Text(
                         'Executed ${entry.steps.where((s) => s.type == StepType.toolCall).length} actions',
@@ -392,23 +390,23 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     Color color;
     switch (step.type) {
       case StepType.toolCall:
-        icon = LucideIcons.wrench;
+        icon = Icons.build_circle_outlined;
         color = const Color(0xFFF59E0B);
         break;
       case StepType.toolResult:
-        icon = LucideIcons.checkCheck;
+        icon = Icons.check_circle_outline;
         color = const Color(0xFF10B981);
         break;
       case StepType.thought:
-        icon = LucideIcons.brainCircuit;
+        icon = Icons.psychology_outlined;
         color = const Color(0xFF8B5CF6);
         break;
       case StepType.error:
-        icon = LucideIcons.alertTriangle;
+        icon = Icons.error_outline;
         color = Colors.redAccent;
         break;
       default:
-        icon = LucideIcons.info;
+        icon = Icons.info_outline;
         color = Colors.grey;
     }
 
@@ -466,12 +464,12 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
             onTap: _isProcessing ? null : _dispatchPrompt,
             child: Container(
               width: 46, height: 46,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                _isProcessing ? LucideIcons.loader : LucideIcons.arrowUp,
+                _isProcessing ? Icons.hourglass_top : Icons.arrow_upward,
                 color: Colors.white,
                 size: 20,
               ),

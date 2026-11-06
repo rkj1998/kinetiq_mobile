@@ -1,5 +1,4 @@
-﻿import 'dart:convert';
-import 'package:dio/dio.dart';
+﻿import 'package:dio/dio.dart';
 import 'base_tool.dart';
 
 class WebSearchTool extends BaseTool {
@@ -68,7 +67,7 @@ class FetchPageTextTool extends BaseTool {
   String get name => 'read_web_page';
 
   @override
-  String get description => 'Reads and extracts readable text and article content from a specific URL.';
+  String get description => 'Reads and extracts readable text from a specific URL.';
 
   @override
   Map<String, dynamic> get parametersSchema => {
@@ -97,15 +96,11 @@ class FetchPageTextTool extends BaseTool {
       );
 
       String content = response.data.toString();
-      // Strip script and style tags
       content = content.replaceAll(RegExp(r'<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>', caseSensitive: false), ' ');
       content = content.replaceAll(RegExp(r'<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>', caseSensitive: false), ' ');
-      // Strip all remaining HTML tags
       content = content.replaceAll(RegExp(r'<[^>]*>'), ' ');
-      // Clean up whitespace
       content = content.replaceAll(RegExp(r'\s+'), ' ').trim();
 
-      // Return clean, token-efficient slice
       if (content.length > 3500) {
         return content.substring(0, 3500) + '... [Content truncated for brevity]';
       }
