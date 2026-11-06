@@ -36,15 +36,36 @@ def check_local_ollama(port=11434):
         return False, []
     return False, []
 
+def find_cloudflared_binary():
+    # 1. Standard PATH
+    found = shutil.which("cloudflared")
+    if found:
+        return found
+
+    # 2. Known common Windows installation paths
+    candidate_paths = [
+        r"C:\Program Files (x86)\cloudflared\cloudflared.exe",
+        r"C:\Program Files\cloudflared\cloudflared.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\cloudflared\cloudflared.exe"),
+        os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Packages\Cloudflare.cloudflared_Microsoft.Winget.Source_8wekyb3d8bbwe\cloudflared.exe"),
+        os.path.expandvars(r"%USERPROFILE%\bin\cloudflared.exe"),
+    ]
+    for p in candidate_paths:
+        if os.path.isfile(p):
+            return p
+
+    return None
+
 def run_cloudflare_tunnel(port=11434):
-    cloudflared = shutil.which("cloudflared")
+    cloudflared = find_cloudflared_binary()
     if not cloudflared:
         print("❌ 'cloudflared' binary not found.")
         print("   Download it free from: https://github.com/cloudflare/cloudflared/releases")
         print("   Or run: winget install --id Cloudflare.cloudflared (on Windows)")
         sys.exit(1)
 
-    print(f"\n🚀 Launching secure Cloudflare Tunnel to local Ollama (port {port})...")
+    print(f"\n🚀 Found cloudflared at: {cloudflared}")
+    print(f"🚀 Launching secure Cloudflare Tunnel to local Ollama (port {port})...")
     cmd = [cloudflared, "tunnel", "--url", f"http://127.0.0.1:{port}"]
     proc = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 
@@ -65,6 +86,9 @@ def run_cloudflare_tunnel(port=11434):
         print("="*65)
         print(f"\n📱 In Kinetiq Mobile on your phone (Cellular or Any Wi-Fi):")
         print(f"   Base URL: {tunnel_url}/v1")
+        print(f"   API Key:  ollama")
+        print(f"\n👉 Tap 'Fetch Models' in Kinetiq to automatically load your Qwen models!")
+        print("="*65 + "\n")
         print(f"   API Key:  ollama")
         print(f"\n👉 Tap 'Fetch Models' in Kinetiq to automatically load your Qwen models!")
         print("="*65 + "\n")
