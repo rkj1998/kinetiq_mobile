@@ -52,7 +52,7 @@ class _NetworkEndpointSheetState extends State<NetworkEndpointSheet> {
     _modelController = TextEditingController(text: widget.currentConfig.selectedModel);
     _type = widget.currentConfig.type;
     _isLocal = widget.currentConfig.isLocal;
-    _discoveredModels = List.from(widget.currentConfig.availableModels);
+    _discoveredModels = [];
   }
 
   Future<void> _fetchLiveModels() async {
@@ -110,6 +110,7 @@ class _NetworkEndpointSheetState extends State<NetworkEndpointSheet> {
       _modelController.text = preset.selectedModel;
       _type = preset.type;
       _isLocal = preset.isLocal;
+      _discoveredModels = [];
     });
   }
 
@@ -299,6 +300,25 @@ class _NetworkEndpointSheetState extends State<NetworkEndpointSheet> {
             ),
 
             if (_discoveredModels.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Live Models Discovered (${_discoveredModels.length}):',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 8),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,

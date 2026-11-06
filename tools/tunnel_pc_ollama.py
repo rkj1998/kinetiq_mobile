@@ -66,7 +66,14 @@ def run_cloudflare_tunnel(port=11434):
 
     print(f"\n🚀 Found cloudflared at: {cloudflared}")
     print(f"🚀 Launching secure Cloudflare Tunnel to local Ollama (port {port})...")
-    cmd = [cloudflared, "tunnel", "--url", f"http://127.0.0.1:{port}"]
+    # CRITICAL: Ollama strictly checks Host header and returns 403 Forbidden
+    # unless --http-host-header localhost is passed!
+    cmd = [
+        cloudflared,
+        "tunnel",
+        "--url", f"http://127.0.0.1:{port}",
+        "--http-host-header", "localhost",
+    ]
     proc = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 
     tunnel_url = None

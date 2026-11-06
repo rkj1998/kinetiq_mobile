@@ -108,7 +108,7 @@ class _CustomizationStudioSheetState extends State<CustomizationStudioSheet>
     _endpointUrlController = TextEditingController(text: _endpoint.baseUrl);
     _apiKeyController = TextEditingController(text: _endpoint.apiKey);
     _modelController = TextEditingController(text: _endpoint.selectedModel);
-    _liveDiscoveredModels = List.from(_endpoint.availableModels);
+    _liveDiscoveredModels = [];
   }
 
   Future<void> _fetchLiveModelsFromEndpoint() async {
@@ -1110,6 +1110,7 @@ class _CustomizationStudioSheetState extends State<CustomizationStudioSheet>
                     _endpointUrlController.text = preset.baseUrl;
                     _modelController.text = preset.selectedModel;
                     _apiKeyController.text = savedKey ?? preset.apiKey;
+                    _liveDiscoveredModels = [];
                   });
                 },
                 child: Container(
@@ -1250,6 +1251,25 @@ class _CustomizationStudioSheetState extends State<CustomizationStudioSheet>
         ),
 
         if (_liveDiscoveredModels.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'Live Models Discovered (${_liveDiscoveredModels.length}):',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
