@@ -88,17 +88,20 @@ Kinetiq provides a multi-theme architecture controlled via `lib/models/app_theme
 
 ---
 
-## 🤖 Animated Personas & Soul Customization
+## 🤖 Animated Personas, Bitmoji Styles & Custom Avatars
 
-Each persona includes prompt conditioning, facial optics, and reactive orbital physics:
+Kinetiq features an expressive **Bitmoji Avatar Engine**. You can customize not just the persona and name, but independently choose the **visual Bitmoji face optics** for any model:
 
-| Persona | Archetype | Color Scheme | Specialization |
+| Persona | Archetype | Default Bitmoji Style | Specialization |
 | :--- | :--- | :--- | :--- |
-| **Antigravity** *(Default)* | *Quantum Elegance* | Google Quantum Blue (`#1A73E8`, `#4285F4`) | Graceful reasoning, thoughtful responses, clean Google simplicity |
-| **Muse** | *Hyper-Creative* | Violet & Rose Glow (`#8B5CF6`, `#EC4899`) | Autonomous browsing, visual reasoning, creative workflows |
-| **Titan** | *Deep Reasoning* | Cobalt & Cyan Glow (`#3B82F6`, `#06B6D4`) | Software engineering, systems architecture, deep code synthesis |
-| **Cipher** | *Autonomous Scout* | Emerald & Neon Mint (`#10B981`, `#14B8A6`) | Cyber recon, live web scraping, factual source verification |
-| **Spark** | *High Velocity* | Amber & Flame Glow (`#F59E0B`, `#EF4444`) | Crisp briefings, instant bulleted productivity, quick action |
+| **Antigravity** *(Default)* | *Quantum Elegance* | Gentle curved quantum smile blinks | Graceful reasoning, thoughtful responses, clean Google simplicity |
+| **Muse** | *Hyper-Creative* | Expressive anime-style cyber optics with catchlights | Autonomous browsing, visual reasoning, creative workflows |
+| **Titan** | *Deep Reasoning* | Tactical wide cyber optics | Software engineering, systems architecture, deep code synthesis |
+| **Cipher** | *Autonomous Scout* | Dual neon scanning rings | Cyber recon, live web scraping, factual source verification |
+| **Spark** | *High Velocity* | Energetic angular lightning eyes | Crisp briefings, instant bulleted productivity, quick action |
+
+*Users can select any Bitmoji facial expression style (Muse, Titan, Cipher, Spark, Antigravity) directly inside the Customization Studio (`customization_studio_sheet.dart`) and have it seamlessly applied to their active model.*
+*The home screen and top navigation display a single, unified avatar image of your chosen model—eliminating redundant decorative icons.*
 
 ---
 

@@ -144,6 +144,7 @@ class _CustomizationStudioSheetState extends State<CustomizationStudioSheet>
     await SecureKeyStore.saveCustomAgentName(_nameController.text.trim());
     await SecureKeyStore.saveActivePersona(_character.id);
     await SecureKeyStore.saveCustomSoulPrompt(_soulPromptController.text.trim());
+    await SecureKeyStore.saveCustomBitmojiFace(_character.bitmojiFaceStyle);
     await SecureKeyStore.saveAgentMemory(updatedMemory);
     await SecureKeyStore.saveApiKey(updatedEndpoint.id, updatedEndpoint.apiKey);
     await SecureKeyStore.saveActiveEndpointId(updatedEndpoint.id);
@@ -458,6 +459,87 @@ class _CustomizationStudioSheetState extends State<CustomizationStudioSheet>
                 ),
               );
             },
+          ),
+        ),
+
+        const SizedBox(height: 20),
+        Text(
+          'Avatar Face & Bitmoji Style',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: _theme.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Choose the visual Bitmoji optics and face expression for your model.',
+          style: TextStyle(fontSize: 11.5, color: _theme.textSecondary),
+        ),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              {'id': 'antigravity', 'name': 'Antigravity (Gentle)', 'sub': 'Quantum Blinks'},
+              {'id': 'muse', 'name': 'Muse (Anime/Creative)', 'sub': 'Large Expressive'},
+              {'id': 'titan', 'name': 'Titan (Tactical)', 'sub': 'Wide Cyber Optics'},
+              {'id': 'cipher', 'name': 'Cipher (Neon Scout)', 'sub': 'Dual Scanner'},
+              {'id': 'spark', 'name': 'Spark (Lightning)', 'sub': 'Dynamic Angles'},
+            ].map((style) {
+              final styleId = style['id']!;
+              final isFaceSel = (_character.bitmojiFaceStyle.isNotEmpty
+                  ? _character.bitmojiFaceStyle
+                  : _character.id) == styleId;
+              final previewChar = _character.copyWith(bitmojiFaceStyle: styleId);
+
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _character = _character.copyWith(bitmojiFaceStyle: styleId);
+                  });
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(right: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isFaceSel ? _theme.primaryAccent.withValues(alpha: 0.16) : _theme.cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isFaceSel ? _theme.primaryAccent : _theme.borderColor,
+                      width: isFaceSel ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      AgentAvatar(
+                        character: previewChar,
+                        size: 32,
+                        mood: isFaceSel ? AgentMood.thinking : AgentMood.idle,
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            style['name']!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isFaceSel ? _theme.primaryAccent : _theme.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            style['sub']!,
+                            style: TextStyle(fontSize: 10, color: _theme.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ),
 

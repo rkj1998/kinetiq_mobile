@@ -17,6 +17,7 @@ class SecureKeyStore {
   // New personalization & memory storage keys
   static const String _customAgentNameKey = 'kinetiq_custom_agent_name';
   static const String _customSoulPromptKey = 'kinetiq_custom_soul_prompt';
+  static const String _customBitmojiFaceKey = 'kinetiq_custom_bitmoji_face';
   static const String _agentMemoryKey = 'kinetiq_agent_memory';
   static const String _autonomousTasksKey = 'kinetiq_autonomous_tasks';
   static const String _pcVirtualFilesKey = 'kinetiq_pc_virtual_files';
@@ -77,6 +78,14 @@ class SecureKeyStore {
 
   static Future<String?> getCustomSoulPrompt() async {
     return await _storage.read(key: _customSoulPromptKey);
+  }
+
+  static Future<void> saveCustomBitmojiFace(String styleId) async {
+    await _storage.write(key: _customBitmojiFaceKey, value: styleId);
+  }
+
+  static Future<String?> getCustomBitmojiFace() async {
+    return await _storage.read(key: _customBitmojiFaceKey);
   }
 
   // --- Persistent Agent Memory & Customer Data ---

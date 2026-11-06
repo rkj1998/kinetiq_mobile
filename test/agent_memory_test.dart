@@ -66,10 +66,12 @@ void main() {
       final custom = defaultChar.copyWith(
         name: 'Aura-9',
         defaultSystemPrompt: 'You are Aura-9, an autonomous researcher.',
+        bitmojiFaceStyle: 'muse',
       );
 
       expect(custom.name, 'Aura-9');
       expect(custom.defaultSystemPrompt, 'You are Aura-9, an autonomous researcher.');
+      expect(custom.bitmojiFaceStyle, 'muse');
       expect(custom.id, defaultChar.id);
     });
   });

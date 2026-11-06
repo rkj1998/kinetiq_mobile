@@ -124,7 +124,9 @@ class _AgentAvatarState extends State<AgentAvatar>
                 child: CustomPaint(
                   size: Size(widget.size, widget.size),
                   painter: _BotFacePainter(
-                    characterId: widget.character.id,
+                    characterId: widget.character.bitmojiFaceStyle.isNotEmpty
+                        ? widget.character.bitmojiFaceStyle
+                        : widget.character.id,
                     mood: widget.mood,
                     eyeGlowColor: widget.character.glowColor,
                     progress: progress,

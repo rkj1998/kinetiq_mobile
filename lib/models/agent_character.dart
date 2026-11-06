@@ -9,6 +9,7 @@ class AgentCharacter {
   final String tag;
   final String description;
   final String avatarSvgSeed;
+  final String bitmojiFaceStyle; // 'antigravity', 'muse', 'titan', 'cipher', 'spark'
   final Color primaryColor;
   final Color secondaryColor;
   final Color glowColor;
@@ -22,6 +23,7 @@ class AgentCharacter {
     required this.tag,
     required this.description,
     required this.avatarSvgSeed,
+    this.bitmojiFaceStyle = 'antigravity',
     required this.primaryColor,
     required this.secondaryColor,
     required this.glowColor,
@@ -36,6 +38,7 @@ class AgentCharacter {
     String? tag,
     String? description,
     String? avatarSvgSeed,
+    String? bitmojiFaceStyle,
     Color? primaryColor,
     Color? secondaryColor,
     Color? glowColor,
@@ -49,6 +52,7 @@ class AgentCharacter {
       tag: tag ?? this.tag,
       description: description ?? this.description,
       avatarSvgSeed: avatarSvgSeed ?? this.avatarSvgSeed,
+      bitmojiFaceStyle: bitmojiFaceStyle ?? this.bitmojiFaceStyle,
       primaryColor: primaryColor ?? this.primaryColor,
       secondaryColor: secondaryColor ?? this.secondaryColor,
       glowColor: glowColor ?? this.glowColor,
@@ -65,6 +69,7 @@ class AgentCharacter {
       tag: 'Quantum Elegance',
       description: 'Google Antigravity-inspired zero-friction AI assistant with graceful reasoning, deep knowledge, and adaptive soul.',
       avatarSvgSeed: 'antigravity-core',
+      bitmojiFaceStyle: 'antigravity',
       primaryColor: Color(0xFF1A73E8),
       secondaryColor: Color(0xFF4285F4),
       glowColor: Color(0xFF38BDF8),
@@ -77,6 +82,7 @@ class AgentCharacter {
       tag: 'Hyper-Creative',
       description: 'Futuristic hyper-agent equipped with interactive browsing, intuitive web reasoning, and visual artistry.',
       avatarSvgSeed: 'muse-cyber',
+      bitmojiFaceStyle: 'muse',
       primaryColor: Color(0xFF8B5CF6),
       secondaryColor: Color(0xFFEC4899),
       glowColor: Color(0xFFD946EF),
@@ -89,6 +95,7 @@ class AgentCharacter {
       tag: 'Deep Reasoning',
       description: 'Deep analytical intelligence built for engineering, architecture, code synthesis, and deep research.',
       avatarSvgSeed: 'titan-core',
+      bitmojiFaceStyle: 'titan',
       primaryColor: Color(0xFF3B82F6),
       secondaryColor: Color(0xFF06B6D4),
       glowColor: Color(0xFF60A5FA),
@@ -101,6 +108,7 @@ class AgentCharacter {
       tag: 'Autonomous Scout',
       description: 'Rapid reconnaissance agent that scourges the web, checks live feeds, verifies sources, and breaks down raw data.',
       avatarSvgSeed: 'cipher-neon',
+      bitmojiFaceStyle: 'cipher',
       primaryColor: Color(0xFF10B981),
       secondaryColor: Color(0xFF14B8A6),
       glowColor: Color(0xFF34D399),
@@ -113,6 +121,7 @@ class AgentCharacter {
       tag: 'High Velocity',
       description: 'Instantaneous action-taker designed for quick workflows, concise briefings, and continuous autonomous assistance.',
       avatarSvgSeed: 'spark-pulse',
+      bitmojiFaceStyle: 'spark',
       primaryColor: Color(0xFFF59E0B),
       secondaryColor: Color(0xFFEF4444),
       glowColor: Color(0xFFFBBF24),

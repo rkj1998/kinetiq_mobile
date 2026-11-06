@@ -16,7 +16,6 @@ import 'services/tools/python_computer_tool.dart';
 import 'services/agent/react_loop.dart';
 import 'services/storage/secure_key_store.dart';
 import 'widgets/agent_avatar.dart';
-import 'widgets/antigravity_logo.dart';
 import 'widgets/antigravity_startup_modal.dart';
 import 'widgets/customization_studio_sheet.dart';
 import 'widgets/agent_browser_sheet.dart';
@@ -174,6 +173,10 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
     final savedCustomSoul = await SecureKeyStore.getCustomSoulPrompt();
     if (savedCustomSoul != null && savedCustomSoul.trim().isNotEmpty) {
       _currentCharacter = _currentCharacter.copyWith(defaultSystemPrompt: savedCustomSoul);
+    }
+    final savedBitmojiFace = await SecureKeyStore.getCustomBitmojiFace();
+    if (savedBitmojiFace != null && savedBitmojiFace.trim().isNotEmpty) {
+      _currentCharacter = _currentCharacter.copyWith(bitmojiFaceStyle: savedBitmojiFace.trim());
     }
 
     // 3. Memory
@@ -416,23 +419,17 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
       ),
       title: Row(
         children: [
-          // Animated Antigravity Logo that triggers boost & tour
-          AntigravityLogo(
-            size: 36,
-            theme: _theme,
-            onTap: _openStartupTour,
-          ),
-          const SizedBox(width: 8),
+          // Single Clean Selected Avatar in AppBar
           GestureDetector(
-            onTap: _openCustomizationStudio,
+            onTap: _openStartupTour,
             child: AgentAvatar(
               character: _currentCharacter,
               mood: _currentMood,
-              size: 32,
+              size: 38,
               showBadge: true,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           GestureDetector(
             onTap: _openCustomizationStudio,
             child: Column(
@@ -641,11 +638,15 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Kinetic Antigravity Hero Logo
-            AntigravityLogo(
-              size: 110,
-              theme: _theme,
-              onTap: _openStartupTour,
+            // Selected Agent Bitmoji Avatar on Home
+            GestureDetector(
+              onTap: _openCustomizationStudio,
+              child: AgentAvatar(
+                character: _currentCharacter,
+                mood: _currentMood,
+                size: 96,
+                showBadge: true,
+              ),
             ),
             const SizedBox(height: 24),
             Text(
