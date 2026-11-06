@@ -201,9 +201,17 @@ class _NetworkEndpointSheetState extends State<NetworkEndpointSheet> {
                       backgroundColor: const Color(0xFF1A1E2F),
                       side: const BorderSide(color: Color(0xFF282E47)),
                       avatar: Icon(
-                        preset.isLocal ? Icons.lan_rounded : Icons.cloud_done_rounded,
+                        preset.type == EndpointType.awsOllama
+                            ? Icons.public_rounded
+                            : preset.isLocal
+                                ? Icons.lan_rounded
+                                : Icons.cloud_done_rounded,
                         size: 16,
-                        color: preset.isLocal ? const Color(0xFF10B981) : const Color(0xFF6366F1),
+                        color: preset.type == EndpointType.awsOllama
+                            ? const Color(0xFFF59E0B)
+                            : preset.isLocal
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFF6366F1),
                       ),
                       label: Text(
                         preset.name.split('(').first.trim(),
@@ -228,7 +236,7 @@ class _NetworkEndpointSheetState extends State<NetworkEndpointSheet> {
                       ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)))
                       : const Icon(Icons.sync_rounded, size: 14, color: Color(0xFF10B981)),
                   label: Text(
-                    _isFetchingModels ? 'Connecting...' : 'Fetch PC Models',
+                    _isFetchingModels ? 'Connecting...' : 'Fetch Models',
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
                   ),
                 ),

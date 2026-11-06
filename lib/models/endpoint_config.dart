@@ -3,6 +3,7 @@ enum EndpointType {
   ollama,
   openAi,
   openRouter,
+  awsOllama,
   custom,
 }
 
@@ -79,6 +80,21 @@ class EndpointConfig {
         'deepseek-r1:latest',
       ],
       isLocal: true,
+    ),
+    EndpointConfig(
+      id: 'ollama-remote',
+      name: 'Ollama Cloud / AWS / Tailscale (Anywhere)',
+      type: EndpointType.awsOllama,
+      baseUrl: 'https://ollama.your-domain-or-ip.com/v1',
+      apiKey: '',
+      selectedModel: 'qwen2.5-coder:14b',
+      availableModels: [
+        'qwen2.5-coder:14b',
+        'qwen2.5-coder:7b',
+        'llama3:latest',
+        'deepseek-r1:14b',
+      ],
+      isLocal: false,
     ),
     EndpointConfig(
       id: 'openrouter',

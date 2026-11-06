@@ -228,7 +228,48 @@ Kinetiq Mobile supports querying local LLMs hosted on your PC (such as **Qwen 2.
    ```text
    http://192.168.1.150:11434/v1
    ```
-5. Tap **"Fetch PC Models"**, select `qwen2.5-coder:14b` or `qwen2.5-coder:7b`, and chat!
+5. Tap **"Fetch Models"**, select `qwen2.5-coder:14b` or `qwen2.5-coder:7b`, and chat!
+
+---
+
+## ☁️ Accessing Ollama From ANYWHERE (AWS Deployment & Worldwide Tunnel)
+
+Whether your models are running on an **AWS EC2 GPU instance** or on your **home PC while you're outside on cellular data**, Kinetiq connects to them securely from anywhere in the world.
+
+### Method 1: Deploy Ollama on AWS EC2 (1-Click Automated Script)
+We provide a production-ready script in `tools/deploy_ollama_aws.sh` to spin up Ollama on Ubuntu 22.04 / 24.04 (e.g. `g4dn.xlarge` or `g5.xlarge` for GPU acceleration):
+
+1. Launch an EC2 Ubuntu instance and run:
+   ```bash
+   curl -O https://raw.githubusercontent.com/rkj1998/kinetiq_mobile/main/tools/deploy_ollama_aws.sh
+   chmod +x deploy_ollama_aws.sh
+   ./deploy_ollama_aws.sh
+   ```
+2. The script:
+   - Installs and enables Ollama as a system service.
+   - Downloads `qwen2.5-coder:7b` and `llama3:latest`.
+   - Generates a cryptographically secure random Bearer API token.
+   - Sets up NGINX reverse proxy with non-blocking LLM token streaming and token authentication.
+   - Prints your **Base URL** (e.g. `http://<EC2-PUBLIC-IP>:11434/v1`) and **API Key**.
+3. In Kinetiq Mobile on your phone:
+   - Select the **"Ollama Cloud / AWS (Anywhere)"** preset.
+   - Paste the Base URL and generated API Key.
+   - Tap **"Fetch Models"** — all AWS models appear instantly on your phone!
+
+### Method 2: Access your Home PC Ollama from Anywhere (Free Cloudflare Tunnel)
+You don't need a static IP or router port forwarding to access your PC's Qwen models when you are away from home:
+
+1. Run the included Python tunnel script on your PC:
+   ```powershell
+   python tools/tunnel_pc_ollama.py --tunnel cloudflare
+   ```
+2. It generates a secure, free HTTPS URL (e.g., `https://random-subdomain.trycloudflare.com`).
+3. In Kinetiq Mobile on your phone (on 5G / cellular / coffee shop Wi-Fi):
+   - Set Base URL: `https://<subdomain>.trycloudflare.com/v1`
+   - Tap **"Fetch Models"**.
+   - Your PC's `qwen2.5-coder:14b` and `qwen2.5-coder:7b` load immediately!
+
+---
 
 ### Installing Kinetiq on Your Phone
 - **Direct Run via USB:**
@@ -240,4 +281,5 @@ Kinetiq Mobile supports querying local LLMs hosted on your PC (such as **Qwen 2.
   flutter build apk --debug
   # APK output: build/app/outputs/flutter-apk/app-debug.apk
   ```
+
 

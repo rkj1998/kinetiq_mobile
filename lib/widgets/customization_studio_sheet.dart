@@ -1186,7 +1186,7 @@ class _CustomizationStudioSheetState extends State<CustomizationStudioSheet>
                     )
                   : Icon(Icons.sync_rounded, size: 14, color: _theme.primaryAccent),
               label: Text(
-                _isFetchingModels ? 'Connecting...' : 'Fetch PC Models',
+                _isFetchingModels ? 'Connecting...' : 'Fetch Models',
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _theme.primaryAccent),
               ),
             ),
