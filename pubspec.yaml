@@ -1,7 +1,7 @@
-name: kinetiq_mobile
+﻿name: kinetiq_mobile
 description: "Kinetiq: Open-source, BYOK autonomous mobile agent with in-app browser & local tools."
 publish_to: "none"
-version: 0.1.0+1
+version: 0.2.0+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -13,6 +13,9 @@ dependencies:
   flutter_riverpod: ^2.6.1
   flutter_secure_storage: ^9.2.2
   uuid: ^4.5.1
+  flutter_markdown: ^0.7.4+3
+  flutter_inappwebview: ^6.1.5
+  lucide_icons: ^0.257.0
 
 dev_dependencies:
   flutter_test:
