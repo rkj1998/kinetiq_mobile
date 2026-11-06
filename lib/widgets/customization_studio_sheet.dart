@@ -4,6 +4,7 @@ import '../models/agent_memory.dart';
 import '../models/app_theme_config.dart';
 import '../models/endpoint_config.dart';
 import '../services/storage/secure_key_store.dart';
+import '../services/llm/openai_adapter.dart';
 import 'agent_avatar.dart';
 import 'antigravity_logo.dart';
 
@@ -86,6 +87,8 @@ class _CustomizationStudioSheetState extends State<CustomizationStudioSheet>
 
   String _newFactCategory = 'Preferences';
   bool _obscureKey = true;
+  bool _isFetchingModels = false;
+  List<String> _liveDiscoveredModels = [];
 
   @override
   void initState() {
@@ -105,6 +108,47 @@ class _CustomizationStudioSheetState extends State<CustomizationStudioSheet>
     _endpointUrlController = TextEditingController(text: _endpoint.baseUrl);
     _apiKeyController = TextEditingController(text: _endpoint.apiKey);
     _modelController = TextEditingController(text: _endpoint.selectedModel);
+    _liveDiscoveredModels = List.from(_endpoint.availableModels);
+  }
+
+  Future<void> _fetchLiveModelsFromEndpoint() async {
+    final url = _endpointUrlController.text.trim();
+    if (url.isEmpty) return;
+
+    setState(() {
+      _isFetchingModels = true;
+    });
+
+    final adapter = OpenAIAdapter(
+      apiKey: _apiKeyController.text.trim(),
+      baseUrl: url,
+    );
+
+    final models = await adapter.fetchAvailableModels();
+
+    setState(() {
+      _isFetchingModels = false;
+      if (models.isNotEmpty) {
+        _liveDiscoveredModels = models;
+        if (!_liveDiscoveredModels.contains(_modelController.text.trim())) {
+          _modelController.text = _liveDiscoveredModels.first;
+        }
+      }
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            models.isNotEmpty
+                ? 'Discovered ${models.length} models on your PC: ${models.join(", ")}'
+                : 'Could not fetch models. Check IP, port 11434, and firewall/OLLAMA_HOST.',
+          ),
+          backgroundColor: models.isNotEmpty ? const Color(0xFF059669) : const Color(0xFFEF4444),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   @override
@@ -1121,20 +1165,39 @@ class _CustomizationStudioSheetState extends State<CustomizationStudioSheet>
         ),
 
         const SizedBox(height: 20),
-        Text(
-          'Base API URL',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: _theme.textPrimary,
-          ),
+        Row(
+          children: [
+            Text(
+              'Base API URL',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: _theme.textPrimary,
+              ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: _isFetchingModels ? null : _fetchLiveModelsFromEndpoint,
+              icon: _isFetchingModels
+                  ? SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: _theme.primaryAccent),
+                    )
+                  : Icon(Icons.sync_rounded, size: 14, color: _theme.primaryAccent),
+              label: Text(
+                _isFetchingModels ? 'Connecting...' : 'Fetch PC Models',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _theme.primaryAccent),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         TextField(
           controller: _endpointUrlController,
           style: TextStyle(color: _theme.textPrimary, fontSize: 14),
           decoration: InputDecoration(
-            hintText: 'https://api.groq.com/openai/v1 or http://10.0.2.2:11434/v1',
+            hintText: 'e.g. http://192.168.1.X:11434/v1 or https://api.groq.com/openai/v1',
             filled: true,
             fillColor: _theme.inputBackgroundColor,
             border: OutlineInputBorder(
@@ -1149,20 +1212,30 @@ class _CustomizationStudioSheetState extends State<CustomizationStudioSheet>
         ),
 
         const SizedBox(height: 16),
-        Text(
-          'Target Model Name',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: _theme.textPrimary,
-          ),
+        Row(
+          children: [
+            Text(
+              'Target Model Name',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: _theme.textPrimary,
+              ),
+            ),
+            const Spacer(),
+            if (_liveDiscoveredModels.isNotEmpty)
+              Text(
+                '${_liveDiscoveredModels.length} available',
+                style: TextStyle(fontSize: 11, color: _theme.textSecondary),
+              ),
+          ],
         ),
         const SizedBox(height: 6),
         TextField(
           controller: _modelController,
           style: TextStyle(color: _theme.textPrimary, fontSize: 14),
           decoration: InputDecoration(
-            hintText: 'e.g. openai/gpt-oss-120b, llama3.2:latest',
+            hintText: 'e.g. qwen2.5-coder:14b, qwen2.5-coder:7b, llama3:latest',
             filled: true,
             fillColor: _theme.inputBackgroundColor,
             border: OutlineInputBorder(
@@ -1175,6 +1248,43 @@ class _CustomizationStudioSheetState extends State<CustomizationStudioSheet>
             ),
           ),
         ),
+
+        if (_liveDiscoveredModels.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _liveDiscoveredModels.map((m) {
+                final isCurrent = _modelController.text.trim() == m;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ActionChip(
+                    backgroundColor: isCurrent ? _theme.primaryAccent : _theme.cardColor,
+                    side: BorderSide(color: isCurrent ? _theme.primaryAccent : _theme.borderColor),
+                    avatar: Icon(
+                      m.contains('qwen') ? Icons.psychology : Icons.memory,
+                      size: 14,
+                      color: isCurrent ? Colors.white : _theme.primaryAccent,
+                    ),
+                    label: Text(
+                      m,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                        color: isCurrent ? Colors.white : _theme.textPrimary,
+                      ),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _modelController.text = m;
+                      });
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
 
         const SizedBox(height: 16),
         Text(

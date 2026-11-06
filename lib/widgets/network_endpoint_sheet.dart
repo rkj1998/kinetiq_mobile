@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/endpoint_config.dart';
 import '../services/storage/secure_key_store.dart';
+import '../services/llm/openai_adapter.dart';
 
 class NetworkEndpointSheet extends StatefulWidget {
   final EndpointConfig currentConfig;
@@ -39,6 +40,8 @@ class _NetworkEndpointSheetState extends State<NetworkEndpointSheet> {
   late TextEditingController _modelController;
   late EndpointType _type;
   late bool _isLocal;
+  bool _isFetchingModels = false;
+  List<String> _discoveredModels = [];
 
   @override
   void initState() {
@@ -49,6 +52,44 @@ class _NetworkEndpointSheetState extends State<NetworkEndpointSheet> {
     _modelController = TextEditingController(text: widget.currentConfig.selectedModel);
     _type = widget.currentConfig.type;
     _isLocal = widget.currentConfig.isLocal;
+    _discoveredModels = List.from(widget.currentConfig.availableModels);
+  }
+
+  Future<void> _fetchLiveModels() async {
+    final url = _urlController.text.trim();
+    if (url.isEmpty) return;
+
+    setState(() => _isFetchingModels = true);
+
+    final adapter = OpenAIAdapter(
+      apiKey: _keyController.text.trim(),
+      baseUrl: url,
+    );
+
+    final models = await adapter.fetchAvailableModels();
+
+    setState(() {
+      _isFetchingModels = false;
+      if (models.isNotEmpty) {
+        _discoveredModels = models;
+        if (!_discoveredModels.contains(_modelController.text.trim())) {
+          _modelController.text = _discoveredModels.first;
+        }
+      }
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            models.isNotEmpty
+                ? 'Found ${models.length} models on your PC: ${models.join(", ")}'
+                : 'Could not fetch models. Verify IP address, port 11434, and OLLAMA_HOST.',
+          ),
+          backgroundColor: models.isNotEmpty ? const Color(0xFF059669) : const Color(0xFFEF4444),
+        ),
+      );
+    }
   }
 
   @override
@@ -177,8 +218,23 @@ class _NetworkEndpointSheetState extends State<NetworkEndpointSheet> {
             const SizedBox(height: 16),
 
             // Base URL Field
-            const Text('API Base URL', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
-            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Text('API Base URL', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _isFetchingModels ? null : _fetchLiveModels,
+                  icon: _isFetchingModels
+                      ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)))
+                      : const Icon(Icons.sync_rounded, size: 14, color: Color(0xFF10B981)),
+                  label: Text(
+                    _isFetchingModels ? 'Connecting...' : 'Fetch PC Models',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
             TextField(
               controller: _urlController,
               style: const TextStyle(fontSize: 14, color: Colors.white),
@@ -212,7 +268,14 @@ class _NetworkEndpointSheetState extends State<NetworkEndpointSheet> {
             const SizedBox(height: 12),
 
             // Model Identifier
-            const Text('Model Identifier', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+            Row(
+              children: [
+                const Text('Model Identifier', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+                const Spacer(),
+                if (_discoveredModels.isNotEmpty)
+                  Text('${_discoveredModels.length} discovered', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
             const SizedBox(height: 6),
             TextField(
               controller: _modelController,
@@ -220,12 +283,49 @@ class _NetworkEndpointSheetState extends State<NetworkEndpointSheet> {
               decoration: InputDecoration(
                 filled: true,
                 fillColor: const Color(0xFF161926),
-                hintText: 'openai/gpt-oss-120b, llama3.2:latest, etc.',
+                hintText: 'qwen2.5-coder:14b, llama3:latest, etc.',
                 hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 prefixIcon: const Icon(Icons.smart_toy_rounded, size: 18, color: Colors.grey),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               ),
             ),
+
+            if (_discoveredModels.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _discoveredModels.map((m) {
+                    final isCurrent = _modelController.text.trim() == m;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: ActionChip(
+                        backgroundColor: isCurrent ? const Color(0xFF6366F1) : const Color(0xFF1A1E2F),
+                        side: BorderSide(color: isCurrent ? const Color(0xFF818CF8) : const Color(0xFF282E47)),
+                        avatar: Icon(
+                          m.contains('qwen') ? Icons.psychology : Icons.memory,
+                          size: 14,
+                          color: isCurrent ? Colors.white : const Color(0xFF10B981),
+                        ),
+                        label: Text(
+                          m,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                            color: Colors.white,
+                          ),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _modelController.text = m;
+                          });
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
 
             // Save Button

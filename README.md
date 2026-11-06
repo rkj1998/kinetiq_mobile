@@ -195,3 +195,49 @@ flutter test
   ```bash
   flutter run -d windows
   ```
+
+---
+
+## 📱 Connecting Phone to PC Local Models (Ollama / Qwen / Llama)
+
+Kinetiq Mobile supports querying local LLMs hosted on your PC (such as **Qwen 2.5 Coder 14B**, **Qwen 2.5 Coder 7B**, or **Llama 3**) directly from your phone.
+
+### Option A: USB Cable (Easiest, 0-Latency, No Firewall Friction)
+1. Connect your Android phone to your PC via USB and enable **USB Debugging** in Developer Options.
+2. In PowerShell or Command Prompt on your PC, run:
+   ```powershell
+   adb reverse tcp:11434 tcp:11434
+   ```
+3. In Kinetiq Mobile:
+   - Go to **Customization Studio (Soul / Settings)** or tap the **Server/WiFi icon**.
+   - Tap **Ollama (PC/Local)** preset (`http://localhost:11434/v1` or `http://127.0.0.1:11434/v1`).
+   - Tap **"Fetch PC Models"** — Kinetiq queries Ollama, discovers all installed models (`qwen2.5-coder:14b`, `qwen2.5-coder:7b`, `llama3:latest`), and presents them as one-tap chips.
+   - Tap your desired Qwen model to instantly activate it!
+
+### Option B: Local Wi-Fi Network
+1. Configure Ollama on Windows to listen on all interfaces:
+   - Close Ollama from the Windows System Tray.
+   - Set the environment variable:
+     ```powershell
+     [System.Environment]::SetEnvironmentVariable('OLLAMA_HOST', '0.0.0.0', 'User')
+     ```
+   - Restart Ollama: `ollama serve` (or launch Ollama from Start Menu).
+2. Allow Ollama through Windows Firewall (port 11434 Inbound TCP).
+3. Find your PC's Wi-Fi IP address via `ipconfig` (e.g. `192.168.1.150`).
+4. In Kinetiq on your phone, set the Base URL to:
+   ```text
+   http://192.168.1.150:11434/v1
+   ```
+5. Tap **"Fetch PC Models"**, select `qwen2.5-coder:14b` or `qwen2.5-coder:7b`, and chat!
+
+### Installing Kinetiq on Your Phone
+- **Direct Run via USB:**
+  ```bash
+  flutter run -d <your-phone-device-id>
+  ```
+- **Build APK to install manually:**
+  ```bash
+  flutter build apk --debug
+  # APK output: build/app/outputs/flutter-apk/app-debug.apk
+  ```
+
