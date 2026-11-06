@@ -172,25 +172,28 @@ print("Hello from Kinetiq Agent PC")''';
                 child: Icon(Icons.terminal_rounded, color: theme.primaryAccent, size: 22),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Agent PC & Python Sandbox',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: theme.textPrimary,
-                      letterSpacing: -0.3,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Agent PC & Python Sandbox',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: theme.textPrimary,
+                        letterSpacing: -0.3,
+                      ),
                     ),
-                  ),
-                  Text(
-                    'Virtual computer: runs Python scripts, creates PDFs, and applies to jobs',
-                    style: TextStyle(fontSize: 11.5, color: theme.textSecondary),
-                  ),
-                ],
+                    Text(
+                      'Virtual computer: runs Python scripts, creates PDFs, and applies to jobs',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11.5, color: theme.textSecondary),
+                    ),
+                  ],
+                ),
               ),
-              const Spacer(),
               IconButton(
                 icon: Icon(Icons.close_rounded, color: theme.textSecondary),
                 onPressed: () => Navigator.pop(context),

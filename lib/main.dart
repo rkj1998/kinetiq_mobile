@@ -431,48 +431,56 @@ class _KinetiqChatScreenState extends State<KinetiqChatScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          GestureDetector(
-            onTap: _openCustomizationStudio,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      _displayName,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                        color: _theme.textPrimary,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: _theme.primaryAccent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _currentCharacter.tag,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: _theme.primaryAccent,
+          Expanded(
+            child: GestureDetector(
+              onTap: _openCustomizationStudio,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          _displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: _theme.textPrimary,
+                            letterSpacing: -0.3,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  _currentEndpoint.isLocal
-                      ? 'LAN: ${_currentEndpoint.selectedModel}'
-                      : '${_currentEndpoint.name.split('(').first.trim()} • ${_currentEndpoint.selectedModel}',
-                  style: TextStyle(color: _theme.textSecondary, fontSize: 11),
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _theme.primaryAccent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _currentCharacter.tag,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: _theme.primaryAccent,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    _currentEndpoint.isLocal
+                        ? 'LAN: ${_currentEndpoint.selectedModel}'
+                        : '${_currentEndpoint.name.split('(').first.trim()} • ${_currentEndpoint.selectedModel}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: _theme.textSecondary, fontSize: 11),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

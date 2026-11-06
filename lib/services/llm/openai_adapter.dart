@@ -113,9 +113,15 @@ class OpenAIAdapter {
           'Content-Type': 'application/json',
           'User-Agent': 'Kinetiq-Mobile/1.0',
         },
+        sendTimeout: const Duration(seconds: 45),
+        receiveTimeout: const Duration(seconds: 90),
       ),
     );
 
-    return response.data['choices'][0]['message'] as Map<String, dynamic>;
+    if (response.data is Map && response.data['choices'] is List && (response.data['choices'] as List).isNotEmpty) {
+      return response.data['choices'][0]['message'] as Map<String, dynamic>;
+    }
+
+    throw Exception('Invalid response format from $endpointUrl: ${response.data}');
   }
 }

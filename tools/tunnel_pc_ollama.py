@@ -49,6 +49,23 @@ class OllamaProxyHandler(http.server.BaseHTTPRequestHandler):
 
     def _proxy_request(self, method, body=None):
         target_url = f"http://127.0.0.1:{self.ollama_port}{self.path}"
+
+        # Live PC Console Log for developer visibility
+        now_str = time.strftime('%H:%M:%S')
+        print(f"\n[{now_str}] 📥 INCOMING REQUEST: {method} {self.path}")
+        if body:
+            try:
+                import json
+                parsed = json.loads(body.decode('utf-8'))
+                model_name = parsed.get('model', 'unknown')
+                messages_list = parsed.get('messages', [])
+                last_msg = messages_list[-1]['content'] if messages_list else ''
+                print(f"      🎯 Target Model: {model_name}")
+                print(f"      💬 Prompt Received: \"{last_msg}\"")
+                print(f"      📜 Total Messages in History: {len(messages_list)}")
+            except Exception:
+                pass
+
         req = urllib.request.Request(target_url, data=body, method=method)
         # Always present as local request to bypass Ollama Host/Origin protection
         req.add_header('Host', f"127.0.0.1:{self.ollama_port}")
@@ -60,7 +77,7 @@ class OllamaProxyHandler(http.server.BaseHTTPRequestHandler):
             req.add_header('Authorization', auth)
 
         try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
+            with urllib.request.urlopen(req, timeout=180) as resp:
                 self.send_response(resp.status)
                 for k, v in resp.getheaders():
                     if k.lower() not in ['content-length', 'connection', 'transfer-encoding']:
@@ -70,14 +87,27 @@ class OllamaProxyHandler(http.server.BaseHTTPRequestHandler):
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(data)
+
+                # Log response summary
+                if body:
+                    try:
+                        import json
+                        resp_json = json.loads(data.decode('utf-8'))
+                        reply_msg = resp_json.get('choices', [{}])[0].get('message', {}).get('content', '')
+                        preview = reply_msg[:120].replace('\n', ' ')
+                        print(f"[{now_str}] 📤 RESPONSE SENT ({len(data)} bytes, Status {resp.status}): \"{preview}...\"")
+                    except Exception:
+                        print(f"[{now_str}] 📤 RESPONSE SENT ({len(data)} bytes, Status {resp.status})")
         except urllib.error.HTTPError as e:
-            self.send_response(e.code)
             data = e.read()
+            print(f"[{now_str}] ❌ HTTP ERROR {e.code}: {data.decode('utf-8', errors='ignore')}")
+            self.send_response(e.code)
             self.send_header('Content-Length', str(len(data)))
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(data)
         except Exception as e:
+            print(f"[{now_str}] ❌ PROXY ERROR: {str(e)}")
             self.send_response(502)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')

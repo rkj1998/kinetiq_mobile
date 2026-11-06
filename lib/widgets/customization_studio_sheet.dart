@@ -6,7 +6,6 @@ import '../models/endpoint_config.dart';
 import '../services/storage/secure_key_store.dart';
 import '../services/llm/openai_adapter.dart';
 import 'agent_avatar.dart';
-import 'antigravity_logo.dart';
 
 class CustomizationStudioSheet extends StatefulWidget {
   final AppThemeConfig currentTheme;
@@ -261,31 +260,34 @@ class _CustomizationStudioSheetState extends State<CustomizationStudioSheet>
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(
         children: [
-          AntigravityLogo(
-            size: 32,
-            theme: _theme,
-            isInteractive: false,
+          AgentAvatar(
+            character: _character,
+            size: 38,
+            mood: AgentMood.idle,
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Customization Studio',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: _theme.textPrimary,
-                  letterSpacing: -0.3,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Customization Studio',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: _theme.textPrimary,
+                    letterSpacing: -0.3,
+                  ),
                 ),
-              ),
-              Text(
-                'Personalize soul, memory, look & neural keys',
-                style: TextStyle(fontSize: 12, color: _theme.textSecondary),
-              ),
-            ],
+                Text(
+                  'Personalize soul, memory, look & neural keys',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: _theme.textSecondary),
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
           IconButton(
             icon: Icon(Icons.close_rounded, color: _theme.textSecondary),
             onPressed: () => Navigator.pop(context),

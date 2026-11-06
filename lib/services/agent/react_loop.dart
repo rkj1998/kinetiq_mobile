@@ -68,10 +68,21 @@ class ReActAgent {
           tools: tools,
         );
       } catch (e) {
+        final errorMsg = e.toString();
         yield AgentStep(
           type: StepType.error,
-          title: 'API Error',
-          content: e.toString(),
+          title: 'API Connection Error',
+          content: errorMsg,
+        );
+        yield AgentStep(
+          type: StepType.finalAnswer,
+          title: 'Error Details',
+          content: '⚠️ **Unable to complete request from $model**\n\n'
+              'Error: `$errorMsg`\n\n'
+              '**Troubleshooting:**\n'
+              '• Ensure your PC tunnel or local server is running.\n'
+              '• Verify the model `$model` is loaded in Ollama.\n'
+              '• Check the live PC terminal logs to see the incoming request.',
         );
         break;
       }

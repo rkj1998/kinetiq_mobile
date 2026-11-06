@@ -171,11 +171,14 @@ class _NetworkEndpointSheetState extends State<NetworkEndpointSheet> {
               children: [
                 const Icon(Icons.hub_rounded, color: Color(0xFF10B981), size: 24),
                 const SizedBox(width: 10),
-                const Text(
-                  'Neural Endpoint & BYOK',
-                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.white),
+                const Expanded(
+                  child: Text(
+                    'Neural Endpoint & BYOK',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
                 ),
-                const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close, size: 20, color: Colors.grey),
                   onPressed: () => Navigator.pop(context),

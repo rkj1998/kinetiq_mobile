@@ -180,25 +180,28 @@ class _TeammateWorkspaceSheetState extends State<TeammateWorkspaceSheet> {
                 child: Icon(Icons.hub_outlined, color: theme.primaryAccent, size: 22),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'AI Teammate Workspace',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: theme.textPrimary,
-                      letterSpacing: -0.3,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AI Teammate Workspace',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: theme.textPrimary,
+                        letterSpacing: -0.3,
+                      ),
                     ),
-                  ),
-                  Text(
-                    'Hand off real multi-step jobs to bots with their own computer',
-                    style: TextStyle(fontSize: 11.5, color: theme.textSecondary),
-                  ),
-                ],
+                    Text(
+                      'Hand off real multi-step jobs to bots with their own computer',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11.5, color: theme.textSecondary),
+                    ),
+                  ],
+                ),
               ),
-              const Spacer(),
               IconButton(
                 icon: Icon(Icons.close_rounded, color: theme.textSecondary),
                 onPressed: () => Navigator.pop(context),
