@@ -58,6 +58,33 @@ class AutonomousCloudVMTool extends BaseTool {
     }
 
     if (targetUrl != null && targetUrl.trim().isNotEmpty) {
+      // If a generic search engine or domain was passed without query params, perform web search
+      if (targetUrl.contains('indeed.com') || targetUrl.contains('google.com') || targetUrl.contains('linkedin.com')) {
+        try {
+          final searchQuery = taskDescription.isNotEmpty ? taskDescription : 'software engineer jobs';
+          final searchResponse = await _dio.get(
+            'https://html.duckduckgo.com/html/',
+            queryParameters: {'q': searchQuery},
+            options: Options(headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }),
+          );
+          final html = searchResponse.data.toString();
+          final snippetRegex = RegExp(r'<a class="result__snippet[^>]*>(.*?)<\/a>', dotAll: true);
+          final titleRegex = RegExp(r'<a class="result__url[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>', dotAll: true);
+
+          final snippets = snippetRegex.allMatches(html).take(4).map((m) => m.group(1)?.replaceAll(RegExp(r'<[^>]*>'), '').trim()).toList();
+          final links = titleRegex.allMatches(html).take(4).map((m) => m.group(1)).toList();
+
+          final buffer = StringBuffer();
+          buffer.writeln('Autonomous Cloud VM Searched & Extracted:');
+          for (int i = 0; i < snippets.length; i++) {
+            buffer.writeln('${i + 1}. ${snippets[i]} (Source: ${i < links.length ? links[i] : targetUrl})');
+          }
+          return buffer.toString();
+        } catch (_) {}
+      }
+
       try {
         final response = await _dio.get(
           targetUrl,

@@ -11,6 +11,10 @@ class ToolRegistry {
     return _registeredTools.values.map((t) => t.toOpenAISchema()).toList();
   }
 
+  Set<String> getAllToolNames() {
+    return _registeredTools.keys.toSet();
+  }
+
   Future<String> executeTool(String name, Map<String, dynamic> arguments) async {
     final tool = _registeredTools[name];
     if (tool == null) {
