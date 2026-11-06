@@ -107,7 +107,7 @@ class ReActAgent {
       // 2. Fallback: Parse markdown or raw JSON tool calls emitted in content by open-weights models (Qwen, Llama, DeepSeek)
       final rawContent = responseMessage['content']?.toString() ?? '';
       if (toolCalls == null || toolCalls.isEmpty) {
-        toolCalls = _extractToolCallsFromContent(rawContent, registry);
+        toolCalls = extractToolCallsFromContent(rawContent, registry);
       }
 
       if (toolCalls != null && toolCalls.isNotEmpty) {
@@ -154,45 +154,95 @@ class ReActAgent {
     }
   }
 
-  /// Extracts function calls from JSON blocks emitted in content by Qwen / Llama / DeepSeek
-  static List<dynamic>? _extractToolCallsFromContent(String text, ToolRegistry registry) {
+  /// Robust extractor for JSON function calls emitted in content by open-weights models (Qwen, Llama, DeepSeek).
+  /// Handles nested JSON objects, markdown ```json code blocks, and balanced braces.
+  static List<dynamic>? extractToolCallsFromContent(String text, ToolRegistry registry) {
     if (text.isEmpty) return null;
     final validToolNames = registry.getAllToolNames();
 
-    // Check for JSON markdown code blocks: ```json ... ``` or raw { "name": "...", "arguments": ... }
-    final jsonRegex = RegExp(r'\{[\s\S]*?"(?:name|action)"[\s\S]*?\}');
-    final matches = jsonRegex.allMatches(text);
+    // 1. Try stripping markdown blocks ```json ... ``` or ``` ... ```
+    String cleanText = text;
+    final codeBlockMatch = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```').firstMatch(text);
+    if (codeBlockMatch != null) {
+      cleanText = codeBlockMatch.group(1)!.trim();
+    }
 
-    for (final match in matches) {
-      try {
-        final parsed = jsonDecode(match.group(0)!);
-        if (parsed is Map<String, dynamic>) {
-          String? name = parsed['name']?.toString();
-          Map<String, dynamic>? arguments;
+    // 2. Scan for balanced JSON object { ... }
+    int startIdx = cleanText.indexOf('{');
+    while (startIdx != -1) {
+      int braceDepth = 0;
+      int endIdx = -1;
+      bool inQuotes = false;
+      bool escapeNext = false;
 
-          if (parsed.containsKey('arguments')) {
-            final args = parsed['arguments'];
-            arguments = args is Map<String, dynamic> ? args : (args is String ? jsonDecode(args) : null);
-          } else if (parsed.containsKey('parameters')) {
-            final args = parsed['parameters'];
-            arguments = args is Map<String, dynamic> ? args : null;
-          }
-
-          // If the model output { "name": "autonomous_cloud_task", "arguments": { ... } }
-          if (name != null && validToolNames.contains(name)) {
-            return [
-              {
-                'id': 'call_${DateTime.now().millisecondsSinceEpoch}',
-                'type': 'function',
-                'function': {
-                  'name': name,
-                  'arguments': arguments ?? <String, dynamic>{},
-                },
-              }
-            ];
+      for (int i = startIdx; i < cleanText.length; i++) {
+        final char = cleanText[i];
+        if (escapeNext) {
+          escapeNext = false;
+          continue;
+        }
+        if (char == '\\') {
+          escapeNext = true;
+          continue;
+        }
+        if (char == '"') {
+          inQuotes = !inQuotes;
+          continue;
+        }
+        if (!inQuotes) {
+          if (char == '{') {
+            braceDepth++;
+          } else if (char == '}') {
+            braceDepth--;
+            if (braceDepth == 0) {
+              endIdx = i;
+              break;
+            }
           }
         }
-      } catch (_) {}
+      }
+
+      if (endIdx != -1) {
+        final candidateJson = cleanText.substring(startIdx, endIdx + 1);
+        try {
+          final parsed = jsonDecode(candidateJson);
+          if (parsed is Map<String, dynamic>) {
+            final name = (parsed['name'] ?? parsed['function'])?.toString();
+            Map<String, dynamic>? arguments;
+
+            if (parsed.containsKey('arguments')) {
+              final rawArgs = parsed['arguments'];
+              if (rawArgs is Map<String, dynamic>) {
+                arguments = rawArgs;
+              } else if (rawArgs is String) {
+                try {
+                  arguments = jsonDecode(rawArgs) as Map<String, dynamic>;
+                } catch (_) {}
+              }
+            } else if (parsed.containsKey('parameters')) {
+              final rawParams = parsed['parameters'];
+              if (rawParams is Map<String, dynamic>) arguments = rawParams;
+            }
+
+            if (name != null && validToolNames.contains(name)) {
+              return [
+                {
+                  'id': 'call_${DateTime.now().millisecondsSinceEpoch}',
+                  'type': 'function',
+                  'function': {
+                    'name': name,
+                    'arguments': arguments ?? <String, dynamic>{},
+                  },
+                }
+              ];
+            }
+          }
+        } catch (_) {}
+        // Look for next { after startIdx
+        startIdx = cleanText.indexOf('{', startIdx + 1);
+      } else {
+        break;
+      }
     }
 
     return null;
